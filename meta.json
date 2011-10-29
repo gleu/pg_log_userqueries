@@ -1,0 +1,25 @@
+{
+	"name": "pg_log_userqueries",
+	"abstract": "Module to log user queries",
+	"description": "pg_log_userqueries is a PostgreSQL module that logs each query executed by a superuser. It records each query in the standard log file.",
+	"version": "0.1.0",
+	"maintainer": "Guillaume Lelarge <guillaume@lelarge.info>",
+	"license": {
+		"PostgreSQL": "http://www.postgresql.org/about/licence"
+	},
+	"status": "stable",
+	"provides": {
+		"pg_log_userqueries": {
+			"file": "pg_log_userqueries.so",
+			"version": "0.1.0"
+		}
+	},
+	"meta-spec": {
+		"version": "1.0.0",
+		"url": "http://pgxn.org/meta/spec.txt"
+	},
+	"tags": [
+		"query",
+		"log"
+	]
+}
