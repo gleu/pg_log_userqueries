@@ -1,0 +1,2 @@
+pg_log_userqueries is a PostgreSQL module that logs each query executed by a
+superuser. It records each query in the standard log file.

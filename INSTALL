@@ -1,0 +1,34 @@
+pg_log_userqueries Install
+==========================
+
+To install pg_log_userqueries, you can untar the pg_log_userqueries tarball
+anywhere you want.
+
+You'll need to compile it. There are two ways to do that:
+
+* In the PostgreSQL source code directory, inside the contrib sub-directory
+
+  Put the pg_log_userqueries source directory inside the contrib subdirectory
+  of PostgreSQL.
+  Do "make", then "make install"
+
+* Using pgxs
+
+  Do "make USE_PGXS=1", then "make USE_PGXS=1 install"
+
+Once it's installed, you'll need to configure PostgreSQL to make use of it:
+
+* shared_preload_libraries='pg_log_userqueries'
+
+There are also optional parameters. To configure them, you first need to add
+the class of pg_log_userqueries in custom_variable_classes:
+
+* custom_variable_classes = 'pg_log_userqueries'
+
+Then you'll be able to set the two following parameters:
+
+* pg_log_userqueries.log_level: to choose the log level of pg_log_userqueries
+* pg_log_userqueries.log_label: to give the prefix of the log line for
+  pg_log_userqueries logs.
+
+Once the configuration is done, restart PostgreSQL.
