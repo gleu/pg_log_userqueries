@@ -7,7 +7,7 @@
 	"license": {
 		"PostgreSQL": "http://www.postgresql.org/about/licence"
 	},
-	"status": "stable",
+	"release_status": "unstable",
 	"provides": {
 		"pg_log_userqueries": {
 			"file": "pg_log_userqueries.so",
