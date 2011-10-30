@@ -21,5 +21,15 @@
 	"tags": [
 		"query",
 		"log"
-	]
+	],
+    "ressources": {
+        "bugtracker": {
+            "web": "https://github.com/gleu/pg_log_userqueries/issues"
+        },
+        "repository": {
+            "type": "git",
+            "url": "git://github.com/gleu/pg_log_userqueries.git",
+            "web": "https://gleu@github.com/gleu/pg_log_userqueries.git"
+        }
+    }
 }
