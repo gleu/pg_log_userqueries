@@ -1,2 +1,15 @@
 pg_log_userqueries is a PostgreSQL module that logs each query executed by a
 superuser. It records each query in the standard log file.
+
+There are also two more optional parameters that allow you to log all queries
+per database and/or per user.
+
+* pg_log_userqueries.log_db: to give a pipe separated list of database to log.
+* pg_log_userqueries.log_user: to give a pipe separated list of user to log.
+
+You can use advanced regular expression in that list. For example:
+
+* pg_log_userqueries.log_usr="postgres|admin_.*|.*_adm"
+
+will match if the exact username is 'postgres' or it begins by 'admin_' or ending by '_adm'.
+
