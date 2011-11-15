@@ -6,20 +6,24 @@
  *
  * Copyright (c) 2011, Guillaume Lelarge (Dalibo),
  * guillaume.lelarge@dalibo.com
- *
+ * 
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
 
 #include <unistd.h>
+#include <regex.h>
+#include <syslog.h>
 
 #include "funcapi.h"
 #include "miscadmin.h"
 #include "tcop/utility.h"
-#include <regex.h>
 
 PG_MODULE_MAGIC;
 
+#ifndef PG_SYSLOG_LIMIT
+#define PG_SYSLOG_LIMIT 1024
+#endif
 
 /*---- Local variables ----*/
 static const struct config_enum_entry server_message_level_options[] = {
@@ -39,14 +43,30 @@ static const struct config_enum_entry server_message_level_options[] = {
     {NULL, 0, false}
 };
 
+static const struct config_enum_entry syslog_facility_options[] = {
+    {"local0", LOG_LOCAL0, false},
+    {"local1", LOG_LOCAL1, false},
+    {"local2", LOG_LOCAL2, false},
+    {"local3", LOG_LOCAL3, false},
+    {"local4", LOG_LOCAL4, false},
+    {"local5", LOG_LOCAL5, false},
+    {"local6", LOG_LOCAL6, false},
+    {"local7", LOG_LOCAL7, false},
+    {NULL, 0}
+};
 
-static int    log_level = NOTICE;
-static char * log_label = NULL;
-static char * log_user = NULL;
-static char * log_db = NULL;
-static int regex_flags = REG_NOSUB;
+
+static int     log_level = NOTICE;
+static char *  log_label = NULL;
+static char *  log_user = NULL;
+static char *  log_db = NULL;
+static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
 static regex_t db_regexv;
+static bool    openlog_done = false;
+static char *  syslog_ident = NULL;
+static int     syslog_facility = 0;
+static int     syslog_level = LOG_NOTICE;
 
 /* Saved hook values in case of unload */
 static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
@@ -67,8 +87,11 @@ static void pgluq_ProcessUtility(Node *parsetree,
 					DestReceiver *dest, char *completionTag);
 #endif
 static void pgluq_log(const char *query);
+static void pgluq_elog(char *msg);
+static void write_syslog(int level, char *line);
 
 extern char *get_database_name(Oid dbid);
+extern int pg_mbcliplen(const char *mbstr, int len, int limit);
 
 /*
  * Module load callback
@@ -132,6 +155,27 @@ _PG_init(void)
                                NULL,
                                NULL,
                                NULL );
+   DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
+                               "Selects syslog level of log (same options than PostgreSQL syslog_facility).",
+                               NULL,
+                               &syslog_facility,
+                               syslog_facility,
+                               syslog_facility_options,
+                               PGC_POSTMASTER,
+                               0,
+                               NULL,
+                               NULL,
+                               NULL);
+   DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
+                               "Select syslog program identity name.",
+                               NULL,
+                               &syslog_ident,
+                               "pg_log_userqueries",
+                               PGC_POSTMASTER,
+                               0,
+                               NULL,
+                               NULL,
+                               NULL );
 #else
    DefineCustomStringVariable( "pg_log_userqueries.log_label",
                                "Label in front of the user query.",
@@ -170,11 +214,30 @@ _PG_init(void)
                                0,
                                NULL,
                                NULL );
+   DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
+                               "Selects syslog level of log (same options than PostgreSQL syslog_facility).",
+                               NULL,
+                               &syslog_facility,
+                               syslog_facility,
+                               syslog_facility_options,
+                               PGC_POSTMASTER,
+                               0,
+                               NULL,
+                               NULL);
+   DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
+                               "Select syslog program identity name.",
+                               NULL,
+                               &syslog_ident,
+                               "pg_log_userqueries",
+                               PGC_POSTMASTER,
+                               0,
+                               NULL,
+                               NULL );
 #endif
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
-	/* compile rexgex for user and db name */
+	/* Compile rexgex for user and db name */
 	if (log_user != NULL)
 	{
 		char *tmp;
@@ -198,6 +261,44 @@ _PG_init(void)
 		pfree(tmp);
 	}
 
+	/* Open syslog descriptor, if required */
+	if (syslog_facility != 0)
+	{
+		/* Find syslog_level according to the user log_level setting */
+		switch (log_level)
+		{
+			case DEBUG5:
+			case DEBUG4:
+			case DEBUG3:
+			case DEBUG2:
+			case DEBUG1:
+				syslog_level = LOG_DEBUG;
+				break;
+			case LOG:
+			case COMMERROR:
+			case INFO:
+				syslog_level = LOG_INFO;
+				break;
+			case NOTICE:
+			case WARNING:
+				syslog_level = LOG_NOTICE;
+				break;
+			case ERROR:
+				syslog_level = LOG_WARNING;
+				break;
+			case FATAL:
+				syslog_level = LOG_ERR;
+				break;
+			case PANIC:
+			default:
+				syslog_level = LOG_CRIT;
+				break;
+		}
+		/* Open syslog descriptor */
+		openlog(syslog_ident, LOG_PID | LOG_NDELAY | LOG_NOWAIT, syslog_facility);
+		openlog_done = true;
+	}
+
 	/*
 	 * Install hooks.
 	 */
@@ -215,6 +316,13 @@ _PG_init(void)
 void
 _PG_fini(void)
 {
+	/* Close syslog descriptor, if required */
+	if (openlog_done)
+	{
+		closelog();
+		openlog_done = false;
+	}
+
 	/* Uninstall hooks. */
 	ExecutorEnd_hook = prev_ExecutorEnd;
 #if PG_VERSION_NUM >= 90000
@@ -276,6 +384,8 @@ pgluq_log(const char *query)
 	/* user variables */
 	bool usermatch = false;
 	char *username = NULL;
+	/* temporary log message */
+	char *tmp_log_query = NULL;
 
 	Assert(query != NULL);
 
@@ -283,7 +393,9 @@ pgluq_log(const char *query)
 	if ((log_db == NULL) && (log_user == NULL) && superuser())
 	{
 		username = GetUserNameFromId(GetUserId());
-		elog(log_level, "%s (superuser=%s): %s", log_label, username, query);
+		tmp_log_query = palloc(strlen(log_label) + strlen(username) + strlen(query) + 25);
+		if (tmp_log_query != NULL)
+			sprintf(tmp_log_query, "%s (superuser=%s): %s", log_label, username, query);
 	}
     /* 
      * New behaviour
@@ -304,12 +416,125 @@ pgluq_log(const char *query)
 		usermatch = (log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0);
 
 		/* Log them if appropriate */
-		if (dbmatch && usermatch)
-			elog(log_level, "%s (database=%s,user=%s): %s", log_label, dbname, username, query);
-		else if (dbmatch)
-			elog(log_level, "%s (database=%s): %s", log_label, dbname, query);
-		else if (usermatch)
-			elog(log_level, "%s (user=%s): %s", log_label, username, query);
+		if (dbmatch || usermatch)
+			tmp_log_query = palloc(strlen(log_label) + strlen(dbname) + strlen(username) + strlen(query) + 25);
+		if (tmp_log_query != NULL) {
+			if (dbmatch && usermatch)
+				sprintf(tmp_log_query, "%s (database=%s,user=%s): %s", log_label, dbname, username, query);
+			else if (dbmatch)
+				sprintf(tmp_log_query, "%s (database=%s): %s", log_label, dbname, query);
+			else if (usermatch)
+				sprintf(tmp_log_query, "%s (user=%s): %s", log_label, username, query);
+		}
 	}
+	if (tmp_log_query != NULL) {
+		pgluq_elog(tmp_log_query);
+		pfree(tmp_log_query);
+	}
+
+}
+
+static void
+pgluq_elog(char *msg)
+{
+	/* Write error message to syslog */
+	if (openlog_done) {
+		write_syslog(syslog_level, msg);
+	} else {
+		elog(log_level, "%s", msg);
+	}
+
+}
+
+/*
+ * Write a message line to syslog
+ */
+static void
+write_syslog(int level, char *line)
+{
+        static unsigned long seq = 0;
+
+        int                     len;
+        const char *nlpos;
+
+        /*
+         * We add a sequence number to each log message to suppress "same"
+         * messages.
+         */
+        seq++;
+
+        /*
+         * Our problem here is that many syslog implementations don't handle long
+         * messages in an acceptable manner. While this function doesn't help that
+         * fact, it does work around by splitting up messages into smaller pieces.
+         *
+         * We divide into multiple syslog() calls if message is too long or if the
+         * message contains embedded newline(s).
+         */
+        len = strlen(line);
+        nlpos = strchr(line, '\n');
+        if (len > PG_SYSLOG_LIMIT || nlpos != NULL)
+        {
+                int                     chunk_nr = 0;
+
+                while (len > 0)
+                {
+                        char            buf[PG_SYSLOG_LIMIT + 1];
+                        int                     buflen;
+                        int                     i;
+
+                        /* if we start at a newline, move ahead one char */
+                        if (line[0] == '\n')
+                        {
+                                line++;
+                                len--;
+                                /* we need to recompute the next newline's position, too */
+                                nlpos = strchr(line, '\n');
+                                continue;
+                        }
+
+                        /* copy one line, or as much as will fit, to buf */
+                        if (nlpos != NULL)
+                                buflen = nlpos - line;
+                        else
+                                buflen = len;
+                        buflen = Min(buflen, PG_SYSLOG_LIMIT);
+                        memcpy(buf, line, buflen);
+                        buf[buflen] = '\0';
+
+                        /* trim to multibyte letter boundary */
+                        buflen = pg_mbcliplen(buf, buflen, buflen);
+                        if (buflen <= 0)
+                                return;
+                        buf[buflen] = '\0';
+
+                        /* already word boundary? */
+                        if (line[buflen] != '\0' &&
+                                !isspace((unsigned char) line[buflen]))
+                        {
+                                /* try to divide at word boundary */
+                                i = buflen - 1;
+                                while (i > 0 && !isspace((unsigned char) buf[i]))
+                                        i--;
+
+                                if (i > 0)              /* else couldn't divide word boundary */
+                                {
+                                        buflen = i;
+                                        buf[i] = '\0';
+                                }
+                        }
+
+                        chunk_nr++;
+
+                        syslog(level, "[%lu-%d] %s", seq, chunk_nr, buf);
+                        line += buflen;
+                        len -= buflen;
+                }
+        }
+        else
+        {
+                /* message short enough */
+                syslog(level, "[%lu] %s", seq, line);
+        }
 }
 
