@@ -23,7 +23,7 @@
 		"log",
 		"syslog"
 	],
-    "ressources": {
+    "resources": {
         "bugtracker": {
             "web": "https://github.com/gleu/pg_log_userqueries/issues"
         },
