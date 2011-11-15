@@ -27,32 +27,32 @@ PG_MODULE_MAGIC;
 
 /*---- Local variables ----*/
 static const struct config_enum_entry server_message_level_options[] = {
-    {"debug", DEBUG2, true},
-    {"debug5", DEBUG5, false},
-    {"debug4", DEBUG4, false},
-    {"debug3", DEBUG3, false},
-    {"debug2", DEBUG2, false},
-    {"debug1", DEBUG1, false},
-    {"info", INFO, false},
-    {"notice", NOTICE, false},
-    {"warning", WARNING, false},
-    {"error", ERROR, false},
-    {"log", LOG, false},
-    {"fatal", FATAL, false},
-    {"panic", PANIC, false},
-    {NULL, 0, false}
+	{"debug", DEBUG2, true},
+	{"debug5", DEBUG5, false},
+	{"debug4", DEBUG4, false},
+	{"debug3", DEBUG3, false},
+	{"debug2", DEBUG2, false},
+	{"debug1", DEBUG1, false},
+	{"info", INFO, false},
+	{"notice", NOTICE, false},
+	{"warning", WARNING, false},
+	{"error", ERROR, false},
+	{"log", LOG, false},
+	{"fatal", FATAL, false},
+	{"panic", PANIC, false},
+	{NULL, 0, false}
 };
 
 static const struct config_enum_entry syslog_facility_options[] = {
-    {"local0", LOG_LOCAL0, false},
-    {"local1", LOG_LOCAL1, false},
-    {"local2", LOG_LOCAL2, false},
-    {"local3", LOG_LOCAL3, false},
-    {"local4", LOG_LOCAL4, false},
-    {"local5", LOG_LOCAL5, false},
-    {"local6", LOG_LOCAL6, false},
-    {"local7", LOG_LOCAL7, false},
-    {NULL, 0}
+	{"local0", LOG_LOCAL0, false},
+	{"local1", LOG_LOCAL1, false},
+	{"local2", LOG_LOCAL2, false},
+	{"local3", LOG_LOCAL3, false},
+	{"local4", LOG_LOCAL4, false},
+	{"local5", LOG_LOCAL5, false},
+	{"local6", LOG_LOCAL6, false},
+	{"local7", LOG_LOCAL7, false},
+	{NULL, 0}
 };
 
 
@@ -110,129 +110,129 @@ _PG_init(void)
 	if (!process_shared_preload_libraries_in_progress)
 		return;
 
-   /*   
-    *        * Define (or redefine) custom GUC variables.
-    */
+	/*   
+ 	 * Define (or redefine) custom GUC variables.
+	 */
 #if PG_VERSION_NUM >= 90100
-   DefineCustomStringVariable( "pg_log_userqueries.log_label",
-                               "Label in front of the user query.",
-                               NULL,
-                               &log_label,
-                               "pg_log_userqueries",
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL,
-                               NULL );
+	DefineCustomStringVariable( "pg_log_userqueries.log_label",
+				"Label in front of the user query.",
+				NULL,
+				&log_label,
+				"pg_log_userqueries",
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_level",
-                               "Selects level of log (same options than log_min_messages.",
-                               NULL,
-                               &log_level,
-                               log_level,
-                               server_message_level_options,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL,
-                               NULL);
+				"Selects level of log (same options than log_min_messages.",
+				NULL,
+				&log_level,
+				log_level,
+				server_message_level_options,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL);
    DefineCustomStringVariable( "pg_log_userqueries.log_user",
-                               "Log statement according to the given user.",
-                               NULL,
-                               &log_user,
-                               NULL,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL,
-                               NULL );
+				"Log statement according to the given user.",
+				NULL,
+				&log_user,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_db",
-                               "Log statement according to the given database.",
-                               NULL,
-                               &log_db,
-                               NULL,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL,
-                               NULL );
+				"Log statement according to the given database.",
+				NULL,
+				&log_db,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
-                               "Selects syslog level of log (same options than PostgreSQL syslog_facility).",
-                               NULL,
-                               &syslog_facility,
-                               syslog_facility,
-                               syslog_facility_options,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL,
-                               NULL);
+				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
+				NULL,
+				&syslog_facility,
+				syslog_facility,
+				syslog_facility_options,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL);
    DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
-                               "Select syslog program identity name.",
-                               NULL,
-                               &syslog_ident,
-                               "pg_log_userqueries",
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL,
-                               NULL );
+				"Select syslog program identity name.",
+				NULL,
+				&syslog_ident,
+				"pg_log_userqueries",
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL );
 #else
    DefineCustomStringVariable( "pg_log_userqueries.log_label",
-                               "Label in front of the user query.",
-                               NULL,
-                               &log_label,
-                               "pg_log_userqueries",
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL );
+				"Label in front of the user query.",
+				NULL,
+				&log_label,
+				"pg_log_userqueries",
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_level",
-                               "Selects level of log (same options than log_min_messages.",
-                               NULL,
-                               &log_level,
-                               log_level,
-                               server_message_level_options,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL);
+				"Selects level of log (same options than log_min_messages.",
+				NULL,
+				&log_level,
+				log_level,
+				server_message_level_options,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL);
    DefineCustomStringVariable( "pg_log_userqueries.log_user",
-                               "Log statement according to the given user.",
-                               NULL,
-                               &log_user,
-                               NULL,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL );
+				"Log statement according to the given user.",
+				NULL,
+				&log_user,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_db",
-                               "Log statement according to the given database.",
-                               NULL,
-                               &log_db,
-                               NULL,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL );
+				"Log statement according to the given database.",
+				NULL,
+				&log_db,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
-                               "Selects syslog level of log (same options than PostgreSQL syslog_facility).",
-                               NULL,
-                               &syslog_facility,
-                               syslog_facility,
-                               syslog_facility_options,
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL);
+				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
+				NULL,
+				&syslog_facility,
+				syslog_facility,
+				syslog_facility_options,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL);
    DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
-                               "Select syslog program identity name.",
-                               NULL,
-                               &syslog_ident,
-                               "pg_log_userqueries",
-                               PGC_POSTMASTER,
-                               0,
-                               NULL,
-                               NULL );
+				"Select syslog program identity name.",
+				NULL,
+				&syslog_ident,
+				"pg_log_userqueries",
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL );
 #endif
 
 	/* Add support to extended regex search */
@@ -336,7 +336,7 @@ _PG_fini(void)
 static void
 pgluq_ExecutorEnd(QueryDesc *queryDesc)
 {
-    pgluq_log(queryDesc->sourceText);
+	pgluq_log(queryDesc->sourceText);
 
 	if (prev_ExecutorEnd)
 		prev_ExecutorEnd(queryDesc);
@@ -397,10 +397,11 @@ pgluq_log(const char *query)
 		if (tmp_log_query != NULL)
 			sprintf(tmp_log_query, "%s (superuser=%s): %s", log_label, username, query);
 	}
-    /* 
-     * New behaviour
-     * if log_db or log_user is set, then log if regexp matches
-     */
+
+	/* 
+	 * New behaviour
+	 * if log_db or log_user is set, then log if regexp matches
+	 */
 	else
 	{
 		/* Get the user name */
@@ -418,7 +419,8 @@ pgluq_log(const char *query)
 		/* Log them if appropriate */
 		if (dbmatch || usermatch)
 			tmp_log_query = palloc(strlen(log_label) + strlen(dbname) + strlen(username) + strlen(query) + 25);
-		if (tmp_log_query != NULL) {
+		if (tmp_log_query != NULL)
+		{
 			if (dbmatch && usermatch)
 				sprintf(tmp_log_query, "%s (database=%s,user=%s): %s", log_label, dbname, username, query);
 			else if (dbmatch)
@@ -427,23 +429,30 @@ pgluq_log(const char *query)
 				sprintf(tmp_log_query, "%s (user=%s): %s", log_label, username, query);
 		}
 	}
-	if (tmp_log_query != NULL) {
+
+	if (tmp_log_query != NULL)
+	{
 		pgluq_elog(tmp_log_query);
 		pfree(tmp_log_query);
 	}
-
 }
 
+/*
+ * Write a message line to syslog or elog
+ * depending on the fact that we opened syslog at the beginning
+ */
 static void
 pgluq_elog(char *msg)
 {
 	/* Write error message to syslog */
-	if (openlog_done) {
+	if (openlog_done)
+	{
 		write_syslog(syslog_level, msg);
-	} else {
+	}
+	else
+	{
 		elog(log_level, "%s", msg);
 	}
-
 }
 
 /*
@@ -452,89 +461,88 @@ pgluq_elog(char *msg)
 static void
 write_syslog(int level, char *line)
 {
-        static unsigned long seq = 0;
+	static unsigned long seq = 0;
+	int len;
+	const char *nlpos;
 
-        int                     len;
-        const char *nlpos;
+	/*
+	 * We add a sequence number to each log message to suppress "same"
+	 * messages.
+	 */
+	seq++;
 
-        /*
-         * We add a sequence number to each log message to suppress "same"
-         * messages.
-         */
-        seq++;
+	/*
+	 * Our problem here is that many syslog implementations don't handle long
+	 * messages in an acceptable manner. While this function doesn't help that
+	 * fact, it does work around by splitting up messages into smaller pieces.
+	 *
+	 * We divide into multiple syslog() calls if message is too long or if the
+	 * message contains embedded newline(s).
+	 */
+	len = strlen(line);
+	nlpos = strchr(line, '\n');
+	if (len > PG_SYSLOG_LIMIT || nlpos != NULL)
+	{
+		int chunk_nr = 0;
+		while (len > 0)
+		{
+			char buf[PG_SYSLOG_LIMIT + 1];
+			int  buflen;
+			int  i;
 
-        /*
-         * Our problem here is that many syslog implementations don't handle long
-         * messages in an acceptable manner. While this function doesn't help that
-         * fact, it does work around by splitting up messages into smaller pieces.
-         *
-         * We divide into multiple syslog() calls if message is too long or if the
-         * message contains embedded newline(s).
-         */
-        len = strlen(line);
-        nlpos = strchr(line, '\n');
-        if (len > PG_SYSLOG_LIMIT || nlpos != NULL)
-        {
-                int                     chunk_nr = 0;
+			/* if we start at a newline, move ahead one char */
+			if (line[0] == '\n')
+			{
+				 line++;
+				 len--;
+				 /* we need to recompute the next newline's position, too */
+				 nlpos = strchr(line, '\n');
+				 continue;
+			}
 
-                while (len > 0)
-                {
-                        char            buf[PG_SYSLOG_LIMIT + 1];
-                        int                     buflen;
-                        int                     i;
+			/* copy one line, or as much as will fit, to buf */
+			if (nlpos != NULL)
+				buflen = nlpos - line;
+			else
+				buflen = len;
+			buflen = Min(buflen, PG_SYSLOG_LIMIT);
+			memcpy(buf, line, buflen);
+			buf[buflen] = '\0';
 
-                        /* if we start at a newline, move ahead one char */
-                        if (line[0] == '\n')
-                        {
-                                line++;
-                                len--;
-                                /* we need to recompute the next newline's position, too */
-                                nlpos = strchr(line, '\n');
-                                continue;
-                        }
+			/* trim to multibyte letter boundary */
+			buflen = pg_mbcliplen(buf, buflen, buflen);
+			if (buflen <= 0)
+				return;
+			buf[buflen] = '\0';
 
-                        /* copy one line, or as much as will fit, to buf */
-                        if (nlpos != NULL)
-                                buflen = nlpos - line;
-                        else
-                                buflen = len;
-                        buflen = Min(buflen, PG_SYSLOG_LIMIT);
-                        memcpy(buf, line, buflen);
-                        buf[buflen] = '\0';
+			/* already word boundary? */
+			if (line[buflen] != '\0' &&
+				!isspace((unsigned char) line[buflen]))
+			{
+				/* try to divide at word boundary */
+				i = buflen - 1;
+				while (i > 0 && !isspace((unsigned char) buf[i]))
+					i--;
 
-                        /* trim to multibyte letter boundary */
-                        buflen = pg_mbcliplen(buf, buflen, buflen);
-                        if (buflen <= 0)
-                                return;
-                        buf[buflen] = '\0';
+				/* else couldn't divide word boundary */
+				if (i > 0)
+				{
+					buflen = i;
+					buf[i] = '\0';
+				}
+			}
 
-                        /* already word boundary? */
-                        if (line[buflen] != '\0' &&
-                                !isspace((unsigned char) line[buflen]))
-                        {
-                                /* try to divide at word boundary */
-                                i = buflen - 1;
-                                while (i > 0 && !isspace((unsigned char) buf[i]))
-                                        i--;
+			chunk_nr++;
 
-                                if (i > 0)              /* else couldn't divide word boundary */
-                                {
-                                        buflen = i;
-                                        buf[i] = '\0';
-                                }
-                        }
-
-                        chunk_nr++;
-
-                        syslog(level, "[%lu-%d] %s", seq, chunk_nr, buf);
-                        line += buflen;
-                        len -= buflen;
-                }
-        }
-        else
-        {
-                /* message short enough */
-                syslog(level, "[%lu] %s", seq, line);
-        }
+			syslog(level, "[%lu-%d] %s", seq, chunk_nr, buf);
+			line += buflen;
+			len -= buflen;
+		}
+	}
+	else
+	{
+		/* message short enough */
+		syslog(level, "[%lu] %s", seq, line);
+	}
 }
 
