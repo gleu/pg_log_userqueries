@@ -65,7 +65,7 @@ static regex_t usr_regexv;
 static regex_t db_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
-static int     syslog_facility = 0;
+static int     syslog_facility = LOG_LOCAL0;
 static int     syslog_level = LOG_NOTICE;
 
 /* Saved hook values in case of unload */
