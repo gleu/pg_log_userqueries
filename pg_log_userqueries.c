@@ -449,6 +449,7 @@ log_prefix(const char *query)
 		/* process the option */
 		switch (log_label[i])
 		{
+#if PG_VERSION_NUM >= 90000
 			case 'a':
 				if (MyProcPort)
 				{
@@ -459,6 +460,7 @@ log_prefix(const char *query)
                     strcat(tmp_log_query, appname);
 				}
 				break;
+#endif
 			case 'u':
 				if (MyProcPort)
 				{
