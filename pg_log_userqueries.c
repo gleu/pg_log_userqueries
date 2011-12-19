@@ -86,9 +86,10 @@ static void pgluq_ProcessUtility(Node *parsetree,
 			  const char *queryString, ParamListInfo params, bool isTopLevel,
 					DestReceiver *dest, char *completionTag);
 #endif
+static bool pgluq_check_log(void);
 static void pgluq_log(const char *query);
-static void pgluq_elog(char *msg);
 static void write_syslog(int level, char *line);
+static char *log_prefix(const char *query);
 
 extern char *get_database_name(Oid dbid);
 extern int pg_mbcliplen(const char *mbstr, int len, int limit);
@@ -237,7 +238,7 @@ _PG_init(void)
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
-	/* Compile rexgex for user and db name */
+	/* Compile rexgex for user name */
 	if (log_user != NULL)
 	{
 		char *tmp;
@@ -249,6 +250,7 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile rexgex for db name */
 	if (log_db != NULL)
 	{
 		char *tmp;
@@ -336,7 +338,8 @@ _PG_fini(void)
 static void
 pgluq_ExecutorEnd(QueryDesc *queryDesc)
 {
-	pgluq_log(queryDesc->sourceText);
+    if (pgluq_check_log())
+		pgluq_log(queryDesc->sourceText);
 
 	if (prev_ExecutorEnd)
 		prev_ExecutorEnd(queryDesc);
@@ -368,9 +371,48 @@ pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 		}
 		PG_END_TRY();
 
+    if (pgluq_check_log())
 		pgluq_log(queryString);
 }
 #endif
+
+/*
+ * Check if we should log
+ */
+static bool pgluq_check_log()
+{
+	/* object's name */
+	char *dbname  = NULL;
+	char *username = NULL;
+
+	/*
+	 * Default behavior
+	 * log only superuser queries
+	 */
+
+	if ((log_db == NULL) && (log_user == NULL) && superuser())
+		return true;
+
+	/* 
+	 * New behaviour
+	 * if log_db or log_user is set, then log if regexp matches
+	 */
+
+	/* Check the user name */
+	username = GetUserNameFromId(GetUserId());
+	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
+		return true;
+
+	/* Check the database name */
+	dbname = get_database_name(MyDatabaseId);
+	if (dbname == NULL || *dbname == '\0')
+		dbname = _("unknown");
+	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
+		return true;
+
+	/* Didn't find any interesting condition */
+	return false;
+}
 
 /*
  * Log statement according to the user that launched the statement.
@@ -378,81 +420,109 @@ pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 static void
 pgluq_log(const char *query)
 {
-	/* database variables */
-	bool dbmatch = false;
-	char *dbname  = NULL;
-	/* user variables */
-	bool usermatch = false;
-	char *username = NULL;
-	/* temporary log message */
 	char *tmp_log_query = NULL;
 
 	Assert(query != NULL);
 
-	/* Default behavior: log only superuser queries */
-	if ((log_db == NULL) && (log_user == NULL) && superuser())
-	{
-		username = GetUserNameFromId(GetUserId());
-		tmp_log_query = palloc(strlen(log_label) + strlen(username) + strlen(query) + 25);
-		if (tmp_log_query != NULL)
-			sprintf(tmp_log_query, "%s (superuser=%s): %s", log_label, username, query);
-	}
-
-	/* 
-	 * New behaviour
-	 * if log_db or log_user is set, then log if regexp matches
-	 */
-	else
-	{
-		/* Get the user name */
-		username = GetUserNameFromId(GetUserId());
-
-		/* Get the database name (unknown if we don't have one) */
-		dbname = get_database_name(MyDatabaseId);
-		if (dbname == NULL || *dbname == '\0')
-			dbname = _("unknown");
-
-		/* Check if we match the regexp */
-		dbmatch = (log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0);
-		usermatch = (log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0);
-
-		/* Log them if appropriate */
-		if (dbmatch || usermatch)
-			tmp_log_query = palloc(strlen(log_label) + strlen(dbname) + strlen(username) + strlen(query) + 25);
-		if (tmp_log_query != NULL)
-		{
-			if (dbmatch && usermatch)
-				sprintf(tmp_log_query, "%s (database=%s,user=%s): %s", log_label, dbname, username, query);
-			else if (dbmatch)
-				sprintf(tmp_log_query, "%s (database=%s): %s", log_label, dbname, query);
-			else if (usermatch)
-				sprintf(tmp_log_query, "%s (user=%s): %s", log_label, username, query);
-		}
-	}
-
+	tmp_log_query = log_prefix(query);
 	if (tmp_log_query != NULL)
 	{
-		pgluq_elog(tmp_log_query);
+		/*
+		 * Write a message line to syslog or elog
+		 * depending on the fact that we opened syslog at the beginning
+		 */
+		if (openlog_done)
+			write_syslog(syslog_level, tmp_log_query);
+		else
+			elog(log_level, "%s", tmp_log_query);
+
+		/* Free the string */
 		pfree(tmp_log_query);
 	}
 }
 
 /*
- * Write a message line to syslog or elog
- * depending on the fact that we opened syslog at the beginning
+ * Format tag info for log lines; append to the provided buffer.
  */
-static void
-pgluq_elog(char *msg)
+static char *
+log_prefix(const char *query)
 {
-	/* Write error message to syslog */
-	if (openlog_done)
+	int		i;
+	int		format_len;
+	char	*tmp_log_query = NULL;
+
+	/* Allocate the new log string */
+    tmp_log_query = palloc(strlen(log_label) + strlen(query) + 4096);
+	if (tmp_log_query == NULL)
+		return NULL;
+	/* not sure why this is needed */
+	tmp_log_query[0] = '\0';
+
+	/* Parse the log_label string */
+	format_len = strlen(log_label);
+	for (i = 0; i < format_len; i++)
 	{
-		write_syslog(syslog_level, msg);
+		if (log_label[i] != '%')
+		{
+			/* literal char, just copy */
+            sprintf(tmp_log_query, "%s%c", tmp_log_query, log_label[i]);
+			continue;
+		}
+		/* go to char after '%' */
+		i++;
+		if (i >= format_len)
+			break;				/* format error - ignore it */
+
+		/* process the option */
+		switch (log_label[i])
+		{
+			case 'a':
+				if (MyProcPort)
+				{
+					const char *appname = application_name;
+
+					if (appname == NULL || *appname == '\0')
+						appname = _("[unknown]");
+                    strcat(tmp_log_query, appname);
+				}
+				break;
+			case 'u':
+				if (MyProcPort)
+				{
+					const char *username = GetUserNameFromId(GetUserId());
+
+					if (username == NULL || *username == '\0')
+						username = _("[unknown]");
+                    strcat(tmp_log_query, username);
+				}
+				break;
+			case 'd':
+				if (MyProcPort)
+				{
+					const char *dbname = get_database_name(MyDatabaseId);
+
+					if (dbname == NULL || *dbname == '\0')
+						dbname = _("[unknown]");
+                    strcat(tmp_log_query, dbname);
+				}
+				break;
+			case 'p':
+                sprintf(tmp_log_query, "%s%d", tmp_log_query, MyProcPid);
+				break;
+			case '%':
+                sprintf(tmp_log_query, "%s%%", tmp_log_query);
+				break;
+			default:
+				/* format error - ignore it */
+				break;
+		}
 	}
-	else
-	{
-		elog(log_level, "%s", msg);
-	}
+
+	/* Add the query at the end */
+	strcat(tmp_log_query, query);
+
+	/* Return the whole string */
+    return tmp_log_query;
 }
 
 /*
