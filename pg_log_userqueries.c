@@ -43,6 +43,12 @@ static const struct config_enum_entry server_message_level_options[] = {
 	{NULL, 0, false}
 };
 
+static const struct config_enum_entry log_destination_options[] = {
+	{"stderr", 1, false},
+	{"syslog", 2, false},
+	{NULL, 0}
+};
+
 static const struct config_enum_entry syslog_facility_options[] = {
 	{"local0", LOG_LOCAL0, false},
 	{"local1", LOG_LOCAL1, false},
@@ -65,6 +71,7 @@ static regex_t usr_regexv;
 static regex_t db_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
+static int     log_destination = 1; /* aka stderr */
 static int     syslog_facility = LOG_LOCAL0;
 static int     syslog_level = LOG_NOTICE;
 
@@ -156,6 +163,17 @@ _PG_init(void)
 				NULL,
 				NULL,
 				NULL );
+   DefineCustomEnumVariable( "pg_log_userqueries.log_destination",
+				"Selects log destination (either stderr or syslog).",
+				NULL,
+				&log_destination,
+				log_destination,
+				log_destination_options,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL,
+				NULL);
    DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
 				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
 				NULL,
@@ -215,6 +233,16 @@ _PG_init(void)
 				0,
 				NULL,
 				NULL );
+   DefineCustomEnumVariable( "pg_log_userqueries.log_destination",
+				"Selects log destination (either stderr or syslog).",
+				NULL,
+				&log_destination
+				log_destination,
+				log_destination_options,
+				PGC_POSTMASTER,
+				0,
+				NULL,
+				NULL);
    DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
 				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
 				NULL,
@@ -264,7 +292,7 @@ _PG_init(void)
 	}
 
 	/* Open syslog descriptor, if required */
-	if (syslog_facility != 0)
+	if (log_destination == 2 /* aka syslog */)
 	{
 		/* Find syslog_level according to the user log_level setting */
 		switch (log_level)
