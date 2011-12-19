@@ -121,7 +121,6 @@ _PG_init(void)
 	/*   
  	 * Define (or redefine) custom GUC variables.
 	 */
-#if PG_VERSION_NUM >= 90100
 	DefineCustomStringVariable( "pg_log_userqueries.log_label",
 				"Label in front of the user query.",
 				NULL,
@@ -129,7 +128,9 @@ _PG_init(void)
 				"pg_log_userqueries",
 				PGC_POSTMASTER,
 				0,
+#if PG_VERSION_NUM >= 90100
 				NULL,
+#endif
 				NULL,
 				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_level",
@@ -140,7 +141,9 @@ _PG_init(void)
 				server_message_level_options,
 				PGC_POSTMASTER,
 				0,
+#if PG_VERSION_NUM >= 90100
 				NULL,
+#endif
 				NULL,
 				NULL);
    DefineCustomStringVariable( "pg_log_userqueries.log_user",
@@ -150,7 +153,9 @@ _PG_init(void)
 				NULL,
 				PGC_POSTMASTER,
 				0,
+#if PG_VERSION_NUM >= 90100
 				NULL,
+#endif
 				NULL,
 				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_db",
@@ -160,7 +165,9 @@ _PG_init(void)
 				NULL,
 				PGC_POSTMASTER,
 				0,
+#if PG_VERSION_NUM >= 90100
 				NULL,
+#endif
 				NULL,
 				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_destination",
@@ -171,98 +178,36 @@ _PG_init(void)
 				log_destination_options,
 				PGC_POSTMASTER,
 				0,
+#if PG_VERSION_NUM >= 90100
 				NULL,
-				NULL,
-				NULL);
-   DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
-				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
-				NULL,
-				&syslog_facility,
-				syslog_facility,
-				syslog_facility_options,
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL,
-				NULL);
-   DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
-				"Select syslog program identity name.",
-				NULL,
-				&syslog_ident,
-				"pg_log_userqueries",
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL,
-				NULL );
-#else
-   DefineCustomStringVariable( "pg_log_userqueries.log_label",
-				"Label in front of the user query.",
-				NULL,
-				&log_label,
-				"pg_log_userqueries",
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL );
-   DefineCustomEnumVariable( "pg_log_userqueries.log_level",
-				"Selects level of log (same options than log_min_messages.",
-				NULL,
-				&log_level,
-				log_level,
-				server_message_level_options,
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL);
-   DefineCustomStringVariable( "pg_log_userqueries.log_user",
-				"Log statement according to the given user.",
-				NULL,
-				&log_user,
-				NULL,
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL );
-   DefineCustomStringVariable( "pg_log_userqueries.log_db",
-				"Log statement according to the given database.",
-				NULL,
-				&log_db,
-				NULL,
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL );
-   DefineCustomEnumVariable( "pg_log_userqueries.log_destination",
-				"Selects log destination (either stderr or syslog).",
-				NULL,
-				&log_destination
-				log_destination,
-				log_destination_options,
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL);
-   DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
-				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
-				NULL,
-				&syslog_facility,
-				syslog_facility,
-				syslog_facility_options,
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL);
-   DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
-				"Select syslog program identity name.",
-				NULL,
-				&syslog_ident,
-				"pg_log_userqueries",
-				PGC_POSTMASTER,
-				0,
-				NULL,
-				NULL );
 #endif
+				NULL,
+				NULL);
+   DefineCustomEnumVariable( "pg_log_userqueries.syslog_facility",
+				"Selects syslog level of log (same options than PostgreSQL syslog_facility).",
+				NULL,
+				&syslog_facility,
+				syslog_facility,
+				syslog_facility_options,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL);
+   DefineCustomStringVariable( "pg_log_userqueries.syslog_ident",
+				"Select syslog program identity name.",
+				NULL,
+				&syslog_ident,
+				"pg_log_userqueries",
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
