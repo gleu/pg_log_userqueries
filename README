@@ -1,23 +1,25 @@
 pg_log_userqueries is a PostgreSQL module that logs each query executed by a
 superuser. It records each query in the standard log file.
 
-There are also two more optional parameters that allow you to log all queries
-per database and/or per user.
+There are also three more optional parameters that allow you to log all queries
+per database and/or per user and/or per IP address.
 
 * pg_log_userqueries.log_db: to give a pipe separated list of database to log.
 * pg_log_userqueries.log_user: to give a pipe separated list of user to log.
+* pg_log_userqueries.log_addr: to give a pipe separated list of address to log.
 
 You can use advanced regular expression in that list. For example:
 
-* pg_log_userqueries.log_usr="postgres|admin_.*|.*_adm"
+    pg_log_userqueries.log_user="postgres|admin_.*|.*_adm"
 
-will match if the exact username is 'postgres' or it begins by 'admin_' or ending by '_adm'.
+will match if the exact username is 'postgres' or if it begins with 'admin_' or
+if it ends with '_adm'.
 
-By default pg_log_userqueries will write queries to PostgreSQL log destination. As superuser
-can modify this behavior, you can force pg_log_userqueries to log independently into syslog
-by setting a syslog facility.
+By default pg_log_userqueries will write queries to PostgreSQL log destination.
+As a superuser can change this behavior, you can force pg_log_userqueries to log
+independently into syslog by setting a syslog facility.
 
-        pg_log_userqueries.syslog_facility='local0'
+    pg_log_userqueries.syslog_facility='local0'
 
 This will enable syslog output by selecting a level of log. It takes the same options than
 PostgreSQL syslog_facility configuration directive.
