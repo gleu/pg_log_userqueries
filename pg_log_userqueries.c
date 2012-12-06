@@ -18,6 +18,7 @@
 #include "funcapi.h"
 #include "miscadmin.h"
 #include "tcop/utility.h"
+#include "libpq/libpq-be.h"
 
 PG_MODULE_MAGIC;
 
@@ -66,9 +67,11 @@ static int     log_level = NOTICE;
 static char *  log_label = NULL;
 static char *  log_user = NULL;
 static char *  log_db = NULL;
+static char *  log_addr = NULL;
 static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
 static regex_t db_regexv;
+static regex_t addr_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
 static int     log_destination = 1; /* aka stderr */
@@ -170,6 +173,18 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_addr",
+				"Log statement according to the given client IP address.",
+				NULL,
+				&log_addr,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_destination",
 				"Selects log destination (either stderr or syslog).",
 				NULL,
@@ -232,6 +247,18 @@ _PG_init(void)
 		if (regcomp(&db_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
+	/* Compile rexgex for inet addr */
+	if (log_addr != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_addr) + 5));
+		sprintf(tmp, "^(%s)$", log_addr);
+		if (regcomp(&addr_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address pattern %s", tmp)));
 		}
 		pfree(tmp);
 	}
@@ -357,6 +384,7 @@ static bool pgluq_check_log()
 	/* object's name */
 	char *dbname  = NULL;
 	char *username = NULL;
+	char *addr = NULL;
 
 	/*
 	 * Default behavior
@@ -382,6 +410,13 @@ static bool pgluq_check_log()
 		dbname = _("unknown");
 	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
 		return true;
+
+    /* Check the inet address */
+    if (MyProcPort){
+        addr = MyProcPort->remote_host;
+        if (regexec(&addr_regexv, addr , 0, 0, 0) == 0)
+            return true;
+    }
 
 	/* Didn't find any interesting condition */
 	return false;
@@ -443,6 +478,7 @@ log_prefix(const char *query)
 		}
 		/* go to char after '%' */
 		i++;
+
 		if (i >= format_len)
 			break;				/* format error - ignore it */
 
