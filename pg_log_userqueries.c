@@ -15,10 +15,17 @@
 #include <regex.h>
 #include <syslog.h>
 
+/*
+ * We won't use PostgreSQL regexps,
+ * and as they redefine some system regexps types, we make sure we don't
+ * redefine them
+ */
+#define _REGEX_H_
+
 #include "funcapi.h"
-#include "miscadmin.h"
 #include "tcop/utility.h"
-#include "libpq/libpq-be.h"
+#include "libpq/libpq-be.h" /* For Port▸▸   ▸   ▸   ▸   ▸   */
+#include "miscadmin.h"      /* For MyProcPort▸  ▸   ▸   ▸   */
 
 PG_MODULE_MAGIC;
 
