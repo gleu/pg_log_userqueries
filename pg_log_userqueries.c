@@ -4,7 +4,7 @@
  *		Log statement according to the user.
  *
  *
- * Copyright (c) 2011, Guillaume Lelarge (Dalibo),
+ * Copyright (c) 2011-2013, Guillaume Lelarge (Dalibo),
  * guillaume.lelarge@dalibo.com
  * 
  *-------------------------------------------------------------------------
@@ -148,7 +148,7 @@ _PG_init(void)
 				NULL,
 				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_level",
-				"Selects level of log (same options than log_min_messages.",
+				"Selects level of log (same options than log_min_messages).",
 				NULL,
 				&log_level,
 				log_level,

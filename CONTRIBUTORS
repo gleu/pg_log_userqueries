@@ -5,4 +5,7 @@ Gilles Darold
  * support for logging specific users
  * support for syslog logging
 
+Julien Rouhaud
+ * support for IP addresses filtering
+
  Thanks to all of them!

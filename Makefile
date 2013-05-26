@@ -1,5 +1,3 @@
-# pg_log_userqueries/Makefile
-
 MODULE_big = pg_log_userqueries
 OBJS = pg_log_userqueries.o
 
