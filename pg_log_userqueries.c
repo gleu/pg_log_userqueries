@@ -91,7 +91,11 @@ void		_PG_init(void);
 void		_PG_fini(void);
 
 static void pgluq_ExecutorEnd(QueryDesc *queryDesc);
-#if PG_VERSION_NUM >= 90000
+#if PG_VERSION_NUM >= 90300
+static void pgluq_ProcessUtility(Node *parsetree,
+			  const char *queryString, ProcessUtilityContext context, ParamListInfo params,
+					DestReceiver *dest, char *completionTag);
+#elif PG_VERSION_NUM >= 90000
 static void pgluq_ProcessUtility(Node *parsetree,
 			  const char *queryString, ParamListInfo params, bool isTopLevel,
 					DestReceiver *dest, char *completionTag);
@@ -347,10 +351,35 @@ pgluq_ExecutorEnd(QueryDesc *queryDesc)
 		standard_ExecutorEnd(queryDesc);
 }
 
-#if PG_VERSION_NUM >= 90000
 /*
  * ProcessUtility hook
+ * (only available from 9.0 releases)
  */
+#if PG_VERSION_NUM >= 90300
+static void
+pgluq_ProcessUtility(Node *parsetree, const char *queryString,
+					ProcessUtilityContext context, ParamListInfo params,
+					DestReceiver *dest, char *completionTag)
+{
+		PG_TRY();
+		{
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(parsetree, queryString, context,
+									params, dest, completionTag);
+			else
+				standard_ProcessUtility(parsetree, queryString, context,
+										params, dest, completionTag);
+		}
+		PG_CATCH();
+		{
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
+
+    if (pgluq_check_log())
+		pgluq_log(queryString);
+}
+#elif PG_VERSION_NUM >= 90000
 static void
 pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 					ParamListInfo params, bool isTopLevel,
