@@ -4,7 +4,7 @@
  *		Log statement according to the user.
  *
  *
- * Copyright (c) 2011-2013, Guillaume Lelarge (Dalibo),
+ * Copyright (c) 2011-2015, Guillaume Lelarge (Dalibo),
  * guillaume.lelarge@dalibo.com
  * 
  *-------------------------------------------------------------------------
