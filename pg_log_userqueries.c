@@ -75,6 +75,7 @@ static char *  log_label = NULL;
 static char *  log_user = NULL;
 static char *  log_db = NULL;
 static char *  log_addr = NULL;
+static bool    log_superusers = false;
 static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
 static regex_t db_regexv;
@@ -234,6 +235,18 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+    DefineCustomBoolVariable( "pg_log_userqueries.log_superusers",
+                              "Enable log of superusers",
+                              NULL,
+                              &log_superusers,
+                              false,
+                              PGC_POSTMASTER,
+                              0,
+#if PG_VERSION_NUM >= 90100
+                              NULL,
+#endif
+                              NULL,
+                              NULL);
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
@@ -432,8 +445,13 @@ static bool pgluq_check_log()
 
 	/* 
 	 * New behaviour
+	 * if superuser and log_superuser are true, then log
 	 * if log_db, log_user, or log_addr is set, then log if regexp matches
 	 */
+
+	/* Check superuser */
+	if (log_superusers && superuser())
+		return true;
 
 	/* Check the user name */
 	username = GetUserNameFromId(GetUserId());
