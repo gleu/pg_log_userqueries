@@ -6,7 +6,7 @@
  *
  * Copyright (c) 2011-2015, Guillaume Lelarge (Dalibo),
  * guillaume.lelarge@dalibo.com
- * 
+ *
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <regex.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 /*
  * We won't use PostgreSQL regexps,
@@ -85,6 +86,10 @@ static char *  syslog_ident = NULL;
 static int     log_destination = 1; /* aka stderr */
 static int     syslog_facility = LOG_LOCAL0;
 static int     syslog_level = LOG_NOTICE;
+static time_t  ref_time = 0;
+static char *  file_switchoff = NULL;
+static bool    switch_off = false;
+static int     time_switchoff = 300;
 
 /* Saved hook values in case of unload */
 static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
@@ -112,6 +117,8 @@ static bool pgluq_check_log(void);
 static void pgluq_log(const char *query);
 static void write_syslog(int level, char *line);
 static char *log_prefix(const char *query);
+static bool check_switchoff(void);
+static bool check_time_switch(void);
 
 extern char *get_database_name(Oid dbid);
 extern int pg_mbcliplen(const char *mbstr, int len, int limit);
@@ -133,7 +140,7 @@ _PG_init(void)
 	if (!process_shared_preload_libraries_in_progress)
 		return;
 
-	/*   
+	/*
  	 * Define (or redefine) custom GUC variables.
 	 */
 	DefineCustomStringVariable( "pg_log_userqueries.log_label",
@@ -235,18 +242,44 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
-    DefineCustomBoolVariable( "pg_log_userqueries.log_superusers",
-                              "Enable log of superusers",
-                              NULL,
-                              &log_superusers,
-                              false,
-                              PGC_POSTMASTER,
-                              0,
+	DefineCustomBoolVariable( "pg_log_userqueries.log_superusers",
+				"Enable log of superusers.",
+				NULL,
+				&log_superusers,
+				false,
+				PGC_POSTMASTER,
+				0,
 #if PG_VERSION_NUM >= 90100
-                              NULL,
+				NULL,
 #endif
-                              NULL,
-                              NULL);
+				NULL,
+				NULL);
+    DefineCustomStringVariable( "pg_log_userqueries.file_switchoff",
+				"If file exists, owned by root with the right properties, switch off the trace log.",
+				NULL,
+				&file_switchoff,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL);
+    DefineCustomIntVariable( "pg_log_userqueries.time_switchoff",
+				"Time interval between file_switchoff existence checks.",
+				NULL,
+				&time_switchoff,
+				300, /* 5 min by default */
+				30,
+				3600,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL);
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
@@ -435,6 +468,9 @@ static bool pgluq_check_log()
 	char *username = NULL;
 	char *addr = NULL;
 
+	if (check_switchoff())
+		return false;
+
 	/*
 	 * Default behavior
 	 * log only superuser queries
@@ -443,7 +479,7 @@ static bool pgluq_check_log()
 	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && superuser())
 		return true;
 
-	/* 
+	/*
 	 * New behaviour
 	 * if superuser and log_superuser are true, then log
 	 * if log_db, log_user, or log_addr is set, then log if regexp matches
@@ -682,3 +718,88 @@ write_syslog(int level, char *line)
 	}
 }
 
+/*
+ * Check if we have reached the time interval defined (time_switchoff)
+ * Default value is 300 seconds (if not set or out of range)
+ * Valid range is from 30 to 3600 seconds
+ */
+static bool check_time_switch(void)
+{
+	bool time2check = false;
+	time_t cur_time;
+
+	if (time(&cur_time) == -1)
+	{
+		elog(log_level,
+			"Unable to get current time: %s (%d).",
+			strerror(errno),
+			errno);
+    }
+
+	if ((int)(cur_time-ref_time) > time_switchoff)
+	{
+		time2check = true;
+		ref_time = cur_time;
+	}
+
+	return time2check;
+}
+
+/*
+ * Function to determine if pg_log_userqueries needs to be de/re-activated on the fly.
+ * Allows to switch off/on the function without restarting PostgreSQL.
+ * Check if file_switchoff string has been set and exists.
+ * This check is done at server startup and every time_switchoff interval.
+ * This means that if the file is created, each new connection will be affected.
+ * Others will have to wait the time interval change for detection.
+ */
+static bool check_switchoff(void)
+{
+	struct stat stat_file_switchoff;
+	int r_stat;
+
+	if (file_switchoff == NULL)
+		return false;
+
+	if (check_time_switch())
+	{
+		if ((r_stat = stat(file_switchoff, &stat_file_switchoff)) < 0 )
+		{
+			if (errno != 2)
+			{
+				elog(WARNING,
+					"Unable to get switchoff file stats (%s): %s (%d).",
+					file_switchoff,
+					strerror(errno),
+					errno);
+			}
+			if (switch_off) /* write once */
+				elog(NOTICE, "Switch off file unfound. Switching on pg_log_userqueries.");
+			switch_off = false;
+		}
+		else /* Permissions checking */
+		{
+			if (stat_file_switchoff.st_uid != 0 ||			/* owner root */
+				stat_file_switchoff.st_gid != 0 ||			/* group root */
+				!S_ISREG(stat_file_switchoff.st_mode) ||	/* regular file */
+				(stat_file_switchoff.st_mode & (S_IXOTH|S_IWOTH|S_IROTH|S_IXGRP|S_IWGRP|S_IRGRP)))
+			{
+				/* No permissions for group and others: there is a security risk */
+				elog(WARNING,
+					"File %s found with incorrect owner or permission.\n"
+					"It should belong to root.root, be regular, and have no permission for group/others.",
+					file_switchoff
+					);
+				switch_off = false;
+			}
+			else
+			{
+				if (!switch_off) /* write once */
+					elog(NOTICE, "Switch off file found. Switching off pg_log_userqueries.");
+				switch_off = true;
+			}
+		}
+	}
+
+	return switch_off;
+}
