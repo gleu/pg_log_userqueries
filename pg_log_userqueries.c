@@ -549,6 +549,7 @@ log_prefix(const char *query)
 	int		i;
 	int		format_len;
 	char	*tmp_log_query = NULL;
+	char	pid[10];
 
 	/* Allocate the new log string */
     tmp_log_query = palloc(strlen(log_label) + strlen(query) + 4096);
@@ -564,7 +565,7 @@ log_prefix(const char *query)
 		if (log_label[i] != '%')
 		{
 			/* literal char, just copy */
-            sprintf(tmp_log_query, "%s%c", tmp_log_query, log_label[i]);
+			strncat(tmp_log_query, log_label+i, 1);
 			continue;
 		}
 		/* go to char after '%' */
@@ -584,7 +585,7 @@ log_prefix(const char *query)
 
 					if (appname == NULL || *appname == '\0')
 						appname = _("[unknown]");
-                    strcat(tmp_log_query, appname);
+                    strncat(tmp_log_query, appname, strlen(appname));
 				}
 				break;
 #endif
@@ -595,7 +596,7 @@ log_prefix(const char *query)
 
 					if (username == NULL || *username == '\0')
 						username = _("[unknown]");
-                    strcat(tmp_log_query, username);
+                    strncat(tmp_log_query, username, strlen(username));
 				}
 				break;
 			case 'd':
@@ -605,14 +606,15 @@ log_prefix(const char *query)
 
 					if (dbname == NULL || *dbname == '\0')
 						dbname = _("[unknown]");
-                    strcat(tmp_log_query, dbname);
+                    strncat(tmp_log_query, dbname, strlen(dbname));
 				}
 				break;
 			case 'p':
-                sprintf(tmp_log_query, "%s%d", tmp_log_query, MyProcPid);
+				sprintf(pid, "%d", MyProcPid);
+                strncat(tmp_log_query, pid, strlen(pid));
 				break;
 			case '%':
-                sprintf(tmp_log_query, "%s%%", tmp_log_query);
+				strncat(tmp_log_query, "%", 1);
 				break;
 			default:
 				/* format error - ignore it */
