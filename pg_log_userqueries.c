@@ -490,7 +490,11 @@ static bool pgluq_check_log()
 		return true;
 
 	/* Check the user name */
+#if PG_VERSION_NUM >= 90500
+	username = GetUserNameFromId(GetUserId(), false);
+#else
 	username = GetUserNameFromId(GetUserId());
+#endif
 	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
 		return true;
 
@@ -592,7 +596,11 @@ log_prefix(const char *query)
 			case 'u':
 				if (MyProcPort)
 				{
+#if PG_VERSION_NUM >= 90500
+					const char *username = GetUserNameFromId(GetUserId(), false);
+#else
 					const char *username = GetUserNameFromId(GetUserId());
+#endif
 
 					if (username == NULL || *username == '\0')
 						username = _("[unknown]");
