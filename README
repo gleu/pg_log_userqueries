@@ -1,2 +1,55 @@
 pg_log_userqueries is a PostgreSQL module that logs each query executed by a
 superuser. It records each query in the standard log file.
+
+To install pg_log_userqueries, you should untar the pg_log_userqueries tarball
+anywhere you want.
+
+You'll then need to compile it with pgxs. So the pg_config tool must be in your
+path. Depending on your PostgreSQL installation, you may need to install a dev
+package. Once pg_config is in your path, do "make", and then "make install".
+
+Once it's installed, you'll need to configure PostgreSQL to make use of it:
+
+* shared_preload_libraries='pg_log_userqueries'
+
+There are also optional parameters. To configure them, with a PostgreSQL release
+older than 9.2, you first need to add the class of pg_log_userqueries in
+custom_variable_classes:
+
+* custom_variable_classes = 'pg_log_userqueries'
+
+In more recent release, custom_variable_classes is no longer available but you
+can still configure pg_log_userqueries.
+
+You'll be able to set the two following parameters:
+
+* pg_log_userqueries.log_level: to choose the log level of pg_log_userqueries
+* pg_log_userqueries.log_label: to give the prefix of the log line for
+  pg_log_userqueries logs.
+
+Once this configuration is done, restart PostgreSQL.
+
+The default is to log only superuser queries. But there are also three more
+optional parameters that allow you to log all queries per database or per user
+or per IP address. If you do this, it won't log only superuser queries but
+every queries according to the new filter.
+
+* pg_log_userqueries.log_db: to give a pipe separated list of database to log.
+* pg_log_userqueries.log_user: to give a pipe separated list of user to log.
+* pg_log_userqueries.log_addr: to give a pipe separated list of IP addresses to log.
+
+You can use advanced regular expression in that list. For example:
+
+* pg_log_userqueries.log_user="^postgres$|^admin_.*|.*_adm$"
+
+will match if the exact username is 'postgres', or if it begins with 'admin_' or
+ends with '_adm'.
+
+By default pg_log_userqueries will write queries to PostgreSQL log destination.
+A superuser can change this behavior with the pg_log_userqueries.log_destination
+parameter. By default at stderr, put syslog if you prefer to use a syslog
+daemon. You can also configure the syslog facility and the program
+identification:
+
+	pg_log_userqueries.syslog_facility='local0'
+	pg_log_userqueries.syslog_ident='pg_log_userqueries'
