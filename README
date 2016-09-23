@@ -29,12 +29,16 @@ You'll be able to set the two following parameters:
 
 Once this configuration is done, restart PostgreSQL.
 
-The default is to log only superuser queries. But there are also three more
-optional parameters that allow you to log all queries per database or per user
-or per IP address. If you do this, it won't log only superuser queries but
-every queries according to the new filter.
+You can specify exactly what you want to log:
 
-* pg_log_userqueries.log_db: to give a pipe separated list of database to log.
+If none of the following four variables is set, all queries issued by superusers will be logged
+in all databases, and only those.
+
+If you set any of log_db, log_user, or log_addr, superuser queries won't be systematically logged,
+and you'll have to set log_superusers to on to reactivate it.
+
+* pg_log_userqueries.log_superusers: to turn on/off logging of all superusers (off by default)
+* pg_log_userqueries.log_db: to give a pipe (|) separated list of database to log.
 * pg_log_userqueries.log_user: to give a pipe separated list of user to log.
 * pg_log_userqueries.log_addr: to give a pipe separated list of IP addresses to log.
 
@@ -53,3 +57,8 @@ identification:
 
 	pg_log_userqueries.syslog_facility='local0'
 	pg_log_userqueries.syslog_ident='pg_log_userqueries'
+
+As pg_log_userqueries is a shared_preload_library, you'll have to restart PostgreSQL to completely remove it. To temporarily deactivate it, you have a workaround though:
+
+* pg_log_userqueries.file_switchoff: path to a file that must be root-owned. If this file is present, pg_log_userqueries won't log anymore
+* pg_log_userqueries.time_switchoff: frequency at which backends will check file_switchoff's presence
