@@ -15,6 +15,7 @@
 #include <regex.h>
 #include <syslog.h>
 #include <sys/stat.h>
+#include <time.h>
 
 /*
  * We won't use PostgreSQL regexps,
