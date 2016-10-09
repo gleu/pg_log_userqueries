@@ -72,7 +72,7 @@ static const struct config_enum_entry syslog_facility_options[] = {
 };
 
 
-static int     log_level = NOTICE;
+static int     log_level = WARNING;
 static char *  log_label = NULL;
 static char *  log_user = NULL;
 static char *  log_db = NULL;
