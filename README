@@ -24,8 +24,9 @@ can still configure pg_log_userqueries.
 You'll be able to set the two following parameters:
 
 * pg_log_userqueries.log_level: to choose the log level of pg_log_userqueries
+  (WARNING by default)
 * pg_log_userqueries.log_label: to give the prefix of the log line for
-  pg_log_userqueries logs.
+  pg_log_userqueries logs (defaults to the name of the extension).
 
 Once this configuration is done, restart PostgreSQL.
 
@@ -49,7 +50,7 @@ You can use advanced regular expression in that list. For example:
 will match if the exact username is 'postgres', or if it begins with 'admin_' or
 ends with '_adm'.
 
-By default pg_log_userqueries will write queries to PostgreSQL log destination.
+By default, pg_log_userqueries will write queries to PostgreSQL log destination.
 A superuser can change this behavior with the pg_log_userqueries.log_destination
 parameter. By default at stderr, put syslog if you prefer to use a syslog
 daemon. You can also configure the syslog facility and the program
