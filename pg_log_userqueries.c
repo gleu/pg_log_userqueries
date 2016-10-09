@@ -631,6 +631,10 @@ log_prefix(const char *query)
 		}
 	}
 
+	/* Check if there's a space at the end, and add one if there isn't */
+	if (strcmp(&tmp_log_query[strlen(tmp_log_query)-1], " "))
+		strcat(tmp_log_query, " ");
+
 	/* Add the query at the end */
 	strcat(tmp_log_query, query);
 
