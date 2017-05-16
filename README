@@ -1,5 +1,7 @@
 pg_log_userqueries is a PostgreSQL module that logs each query executed by a
-superuser. It records each query in the standard log file.
+user or/and on a database. It records each query in the standard log file.
+Default is to log superusers queries executed on all database. It is also
+possible to filter the queries to be logged through a regular expression.
 
 To install pg_log_userqueries, you should untar the pg_log_userqueries tarball
 anywhere you want.
@@ -35,8 +37,8 @@ You can specify exactly what you want to log:
 If none of the following four variables is set, all queries issued by superusers will be logged
 in all databases, and only those.
 
-If you set any of log_db, log_user, or log_addr, superuser queries won't be systematically logged,
-and you'll have to set log_superusers to on to reactivate it.
+If you set any of log_db, log_user, log_addr or log_regexp superuser queries won't be
+systematically logged, and you'll have to set log_superusers to on to reactivate it.
 
 * pg_log_userqueries.log_superusers: to turn on/off logging of all superusers (off by default)
 * pg_log_userqueries.log_db: to give a pipe (|) separated list of database to log.
@@ -45,10 +47,19 @@ and you'll have to set log_superusers to on to reactivate it.
 
 You can use advanced regular expression in that list. For example:
 
-* pg_log_userqueries.log_user="^postgres$|^admin_.*|.*_adm$"
+* pg_log_userqueries.log_user="postgres|admin_.*|.*_adm"
 
 will match if the exact username is 'postgres', or if it begins with 'admin_' or
 ends with '_adm'.
+
+You can also use pg_log_userqueries to log queries matching a particular regular
+expression using a the 'pg_log_userqueries.log_regexp' dedicated configuration directive:
+
+* pg_log_userqueries.log_regexp: to give a regular expression to log all queries matching this regexp.
+
+For example to only log calls related to prepared transaction statements you can set the following:
+
+    pg_log_userqueries.log_regexp="^(PREPARE TRANSACTION|COMMIT PREPARED|ROLLBACK PREPARED)"
 
 By default, pg_log_userqueries will write queries to PostgreSQL log destination.
 A superuser can change this behavior with the pg_log_userqueries.log_destination

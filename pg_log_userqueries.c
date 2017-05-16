@@ -77,11 +77,13 @@ static char *  log_label = NULL;
 static char *  log_user = NULL;
 static char *  log_db = NULL;
 static char *  log_addr = NULL;
+static char *  log_regexp = NULL;
 static bool    log_superusers = false;
 static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
 static regex_t db_regexv;
 static regex_t addr_regexv;
+static regex_t query_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
 static int     log_destination = 1; /* aka stderr */
@@ -281,10 +283,22 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL);
+   DefineCustomStringVariable( "pg_log_userqueries.log_regexp",
+				"Log statement according to the given regular expression.",
+				NULL,
+				&log_regexp,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
-	/* Compile rexgex for user name */
+	/* Compile regexp for user name */
 	if (log_user != NULL)
 	{
 		char *tmp;
@@ -296,7 +310,7 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
-	/* Compile rexgex for db name */
+	/* Compile regexp for db name */
 	if (log_db != NULL)
 	{
 		char *tmp;
@@ -308,7 +322,7 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
-	/* Compile rexgex for inet addr */
+	/* Compile regexp for inet addr */
 	if (log_addr != NULL)
 	{
 		char *tmp;
@@ -319,6 +333,14 @@ _PG_init(void)
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address pattern %s", tmp)));
 		}
 		pfree(tmp);
+	}
+	/* Compile rexgep to log statement */
+	if (log_regexp != NULL)
+	{
+		if (regcomp(&query_regexv, log_regexp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp pattern %s", log_regexp)));
+		}
 	}
 
 	/* Open syslog descriptor, if required */
@@ -477,7 +499,7 @@ static bool pgluq_check_log()
 	 * log only superuser queries
 	 */
 
-	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && superuser())
+	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && (log_regexp == NULL) && superuser())
 		return true;
 
 	/*
@@ -527,6 +549,10 @@ pgluq_log(const char *query)
 	char *tmp_log_query = NULL;
 
 	Assert(query != NULL);
+
+	/* when log regexp statement is set do not log the query if it doesn't match the regexp */
+	if ((log_regexp != NULL) && (regexec(&query_regexv, query, 0, 0, 0) != 0))
+		return;
 
 	tmp_log_query = log_prefix(query);
 	if (tmp_log_query != NULL)
