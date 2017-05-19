@@ -37,7 +37,7 @@ You can specify exactly what you want to log:
 If none of the following four variables is set, all queries issued by superusers will be logged
 in all databases, and only those.
 
-If you set any of log_db, log_user, log_addr or log_regexp superuser queries won't be
+If you set any of log_db, log_user, log_addr or log_query superuser queries won't be
 systematically logged, and you'll have to set log_superusers to on to reactivate it.
 
 * pg_log_userqueries.log_superusers: to turn on/off logging of all superusers (off by default)
@@ -53,13 +53,13 @@ will match if the exact username is 'postgres', or if it begins with 'admin_' or
 ends with '_adm'.
 
 You can also use pg_log_userqueries to log queries matching a particular regular
-expression using a the 'pg_log_userqueries.log_regexp' dedicated configuration directive:
+expression using a the 'pg_log_userqueries.log_query' dedicated configuration directive:
 
-* pg_log_userqueries.log_regexp: to give a regular expression to log all queries matching this regexp.
+* pg_log_userqueries.log_query: to give a regular expression to log all queries matching this regexp.
 
 For example to only log calls related to prepared transaction statements you can set the following:
 
-    pg_log_userqueries.log_regexp="^(PREPARE TRANSACTION|COMMIT PREPARED|ROLLBACK PREPARED)"
+    pg_log_userqueries.log_query="^(PREPARE TRANSACTION|COMMIT PREPARED|ROLLBACK PREPARED)"
 
 By default, pg_log_userqueries will write queries to PostgreSQL log destination.
 A superuser can change this behavior with the pg_log_userqueries.log_destination
