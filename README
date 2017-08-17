@@ -62,6 +62,17 @@ For example, to only log calls related to prepared transaction statements, you c
 
     pg_log_userqueries.log_query="^(PREPARE TRANSACTION|COMMIT PREPARED|ROLLBACK PREPARED)"
 
+This filter will be applied after all other filters. For example if you have set log_user
+but the user don't match nothing will be logged even if the query regexp match.
+
+By default log_user, log_db and log_addr are checked in this order and the first matching
+value will write to the log if log_query is not set or log_query match. If you want that
+all of them, when defined, must match to write to log activate the match_all directive. In
+this case it will log statements only when defined filters for log_user, log_db, log_addr
+and log_query all match.
+
+* pg_log_queries.match_all='on'
+
 By default, pg_log_userqueries will write queries to PostgreSQL log destination.
 A superuser can change this behavior with the pg_log_userqueries.log_destination
 parameter. By default at stderr, put syslog if you prefer to use a syslog

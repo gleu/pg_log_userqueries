@@ -93,6 +93,7 @@ static time_t  ref_time = 0;
 static char *  file_switchoff = NULL;
 static bool    switch_off = false;
 static int     time_switchoff = 300;
+static bool    match_all = false;
 
 /* Saved hook values in case of unload */
 static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
@@ -299,6 +300,18 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+    DefineCustomBoolVariable( "pg_log_queries.match_all",
+				"Log statement only when all defined conditions for log_user, log_db, log_addr and log_query match.",
+				NULL,
+				&match_all,
+				false,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL);
 
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
@@ -519,6 +532,7 @@ static bool pgluq_check_log()
 	char *dbname  = NULL;
 	char *username = NULL;
 	char *addr = NULL;
+	bool ret = false;
 
 	if (check_switchoff())
 		return false;
@@ -539,7 +553,12 @@ static bool pgluq_check_log()
 
 	/* Check superuser */
 	if (log_superusers && superuser())
-		return true;
+ 	{
+ 		if (match_all == false)
+ 			return true;
+ 		else
+ 			ret = true;
+ 	}
 
 	/* Check the user name */
 #if PG_VERSION_NUM >= 90500
@@ -548,25 +567,46 @@ static bool pgluq_check_log()
 	username = GetUserNameFromId(GetUserId());
 #endif
 	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
-		return true;
+ 	{
+ 		if (match_all == false)
+ 			return true;
+ 		else
+ 			ret = true;
+ 	} else if (match_all && (log_user != NULL)) {
+ 		return false;
+ 	}
 
 	/* Check the database name */
 	dbname = get_database_name(MyDatabaseId);
 	if (dbname == NULL || *dbname == '\0')
 		dbname = _("unknown");
 	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
-		return true;
+ 	{
+ 		if (match_all == false)
+ 			return true;
+ 		else
+ 			ret = true;
+ 	} else if (match_all && (log_db != NULL)) {
+ 		return false;
+ 	}
 
     /* Check the inet address */
     if (MyProcPort)
     {
         addr = MyProcPort->remote_host;
         if ((log_addr != NULL) && regexec(&addr_regexv, addr , 0, 0, 0) == 0)
-            return true;
+ 	{
+ 		if (match_all == false)
+ 			return true;
+ 		else
+ 			ret = true;
+ 	} else if (match_all && (log_addr != NULL)) {
+ 		return false;
+ 	}
     }
 
 	/* Didn't find any interesting condition */
-	return false;
+	return ret;
 }
 
 /*
