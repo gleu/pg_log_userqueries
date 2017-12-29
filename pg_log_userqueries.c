@@ -537,6 +537,23 @@ static bool pgluq_check_log()
 	if (check_switchoff())
 		return false;
 
+	/* Get the user name */
+#if PG_VERSION_NUM >= 90500
+	username = GetUserNameFromId(GetUserId(), false);
+#else
+	username = GetUserNameFromId(GetUserId());
+#endif
+
+	/* Get the database name */
+	dbname = get_database_name(MyDatabaseId);
+
+	/*
+	 * If there are no username and dbname set, it's a background worker
+	 * and we don't want to log that kind of activity
+	 */
+	if (!username && !dbname)
+		return false;
+
 	/*
 	 * Default behavior
 	 * log only superuser queries
@@ -561,11 +578,6 @@ static bool pgluq_check_log()
  	}
 
 	/* Check the user name */
-#if PG_VERSION_NUM >= 90500
-	username = GetUserNameFromId(GetUserId(), false);
-#else
-	username = GetUserNameFromId(GetUserId());
-#endif
 	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
  	{
  		if (match_all == false)
@@ -577,7 +589,6 @@ static bool pgluq_check_log()
  	}
 
 	/* Check the database name */
-	dbname = get_database_name(MyDatabaseId);
 	if (dbname == NULL || *dbname == '\0')
 		dbname = _("unknown");
 	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
