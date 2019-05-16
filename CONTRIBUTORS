@@ -2,6 +2,9 @@ List of contributors
 ====================
 
 Gilles Darold
+ * support for logging statement duration
+ * support for logging specific queries
+ * support for match all feature
  * support for logging specific users
  * support for syslog logging
 
