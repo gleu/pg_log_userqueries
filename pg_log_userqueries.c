@@ -725,10 +725,10 @@ log_prefix(const char *query)
 
 		TimestampDifference(GetCurrentStatementStartTimestamp(), GetCurrentTimestamp(), &secs, &usecs);
 		msecs = usecs / 1000;
-		snprintf(duration_msg, 60, "duration: %ld.%03d ms statement: ",secs * 1000 + msecs, usecs % 1000);
+		snprintf(duration_msg, 60, "duration: %ld.%03d ms  statement: ",secs * 1000 + msecs, usecs % 1000);
 	}
 	else
-		*duration_msg = '\0';
+		strcat(duration_msg, "statement: ");
 
 	/* Allocate the new log string */
 	tmp_log_query = palloc(strlen(log_label) + strlen(duration_msg) + strlen(query) + 4096);
@@ -737,10 +737,6 @@ log_prefix(const char *query)
 
 	/* not sure why this is needed */
 	tmp_log_query[0] = '\0';
-
-	/* add duration information if available */
-	if (strlen(duration_msg) > 0)
-		strncat(tmp_log_query, duration_msg, strlen(duration_msg));
 
 	/* Parse the log_label string */
 	format_len = strlen(log_label);
@@ -811,14 +807,18 @@ log_prefix(const char *query)
 	}
 
 	/* Check if there's a space at the end, and add one if there isn't */
-	if (strcmp(&tmp_log_query[strlen(tmp_log_query)-1], " "))
+	if (strlen(tmp_log_query) > 0 && strcmp(&tmp_log_query[strlen(tmp_log_query)-1], " "))
 		strcat(tmp_log_query, " ");
+
+	/* add duration information if available */
+	if (strlen(duration_msg) > 0)
+		strncat(tmp_log_query, duration_msg, strlen(duration_msg));
 
 	/* Add the query at the end */
 	strcat(tmp_log_query, query);
 
 	/* Return the whole string */
-    return tmp_log_query;
+	return tmp_log_query;
 }
 
 /*
