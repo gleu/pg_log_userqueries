@@ -94,8 +94,10 @@ static char *  file_switchoff = NULL;
 static bool    switch_off = false;
 static int     time_switchoff = 300;
 static bool    match_all = false;
+static bool    logged_in_utility_hook = false;
 
 /* Saved hook values in case of unload */
+static ExecutorStart_hook_type prev_ExecutorStart = NULL;
 static ExecutorEnd_hook_type prev_ExecutorEnd = NULL;
 #if PG_VERSION_NUM >= 90000
 static ProcessUtility_hook_type prev_ProcessUtility = NULL;
@@ -107,6 +109,7 @@ static ProcessUtility_hook_type prev_ProcessUtility = NULL;
 void		_PG_init(void);
 void		_PG_fini(void);
 
+static void pgluq_ExecutorStart(QueryDesc *queryDesc, int eflags);
 static void pgluq_ExecutorEnd(QueryDesc *queryDesc);
 #if PG_VERSION_NUM >= 100000
 static void pgluq_ProcessUtility(PlannedStmt *pstmt,
@@ -401,7 +404,9 @@ _PG_init(void)
 	/*
 	 * Install hooks.
 	 */
+	prev_ExecutorStart = ExecutorStart_hook;
 	prev_ExecutorEnd = ExecutorEnd_hook;
+	ExecutorStart_hook = pgluq_ExecutorStart;
 	ExecutorEnd_hook = pgluq_ExecutorEnd;
 #if PG_VERSION_NUM >= 90000
 	prev_ProcessUtility = ProcessUtility_hook;
@@ -423,6 +428,7 @@ _PG_fini(void)
 	}
 
 	/* Uninstall hooks. */
+	ExecutorStart_hook = prev_ExecutorStart;
 	ExecutorEnd_hook = prev_ExecutorEnd;
 #if PG_VERSION_NUM >= 90000
 	ProcessUtility_hook = prev_ProcessUtility;
@@ -442,6 +448,17 @@ pgluq_ExecutorEnd(QueryDesc *queryDesc)
 		prev_ExecutorEnd(queryDesc);
 	else
 		standard_ExecutorEnd(queryDesc);
+}
+
+static void
+pgluq_ExecutorStart(QueryDesc *queryDesc, int eflags)
+{
+	if (prev_ExecutorStart)
+		prev_ExecutorStart(queryDesc, eflags);
+	else
+		standard_ExecutorStart(queryDesc, eflags);
+
+	logged_in_utility_hook = false;
 }
 
 /*
@@ -470,8 +487,12 @@ pgluq_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 		}
 		PG_END_TRY();
 
-    if (pgluq_check_log())
+	if (pgluq_check_log())
+	{
 		pgluq_log(queryString);
+		/* mark statement as already been logged */
+		logged_in_utility_hook = true;
+	}
 }
 #elif PG_VERSION_NUM >= 90300
 static void
@@ -494,8 +515,12 @@ pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 		}
 		PG_END_TRY();
 
-    if (pgluq_check_log())
+	if (pgluq_check_log())
+	{
 		pgluq_log(queryString);
+		/* mark statement as already been logged */
+		logged_in_utility_hook = true;
+	}
 }
 #elif PG_VERSION_NUM >= 90000
 static void
@@ -518,8 +543,12 @@ pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 		}
 		PG_END_TRY();
 
-    if (pgluq_check_log())
+	if (pgluq_check_log())
+	{
 		pgluq_log(queryString);
+		/* mark statement as already been logged */
+		logged_in_utility_hook = true;
+	}
 }
 #endif
 
@@ -629,6 +658,15 @@ pgluq_log(const char *query)
 	char *tmp_log_query = NULL;
 
 	Assert(query != NULL);
+
+	/* Check if the query have already been logged in the utility hook */
+	if (logged_in_utility_hook)
+	{
+		logged_in_utility_hook = false;
+		return;
+	}
+	else
+		logged_in_utility_hook = false;
 
 	/* when log regexp statement is set do not log the query if it doesn't match the regexp */
 	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) != 0))
