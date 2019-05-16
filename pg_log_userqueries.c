@@ -16,6 +16,9 @@
 #include <syslog.h>
 #include <sys/stat.h>
 #include <time.h>
+/* to log statement duration */
+#include <utils/timestamp.h>
+#include <access/xact.h>
 
 /*
  * We won't use PostgreSQL regexps,
@@ -95,6 +98,7 @@ static bool    switch_off = false;
 static int     time_switchoff = 300;
 static bool    match_all = false;
 static bool    logged_in_utility_hook = false;
+static bool    enable_log_duration = false;
 
 /* Saved hook values in case of unload */
 static ExecutorStart_hook_type prev_ExecutorStart = NULL;
@@ -307,6 +311,18 @@ _PG_init(void)
 				"Log statement only when all defined conditions for log_user, log_db, log_addr and log_query match.",
 				NULL,
 				&match_all,
+				false,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL);
+	DefineCustomBoolVariable( "pg_log_userqueries.log_duration",
+				"Enable log of query duration.",
+				NULL,
+				&enable_log_duration,
 				false,
 				PGC_POSTMASTER,
 				0,
@@ -699,13 +715,32 @@ log_prefix(const char *query)
 	int		format_len;
 	char	*tmp_log_query = NULL;
 	char	pid[10];
+	char    duration_msg[60];
+
+	/* Log duration if available */
+	if (enable_log_duration) {
+		long            secs;
+		int             usecs;
+		int             msecs;
+
+		TimestampDifference(GetCurrentStatementStartTimestamp(), GetCurrentTimestamp(), &secs, &usecs);
+		msecs = usecs / 1000;
+		snprintf(duration_msg, 60, "duration: %ld.%03d ms statement: ",secs * 1000 + msecs, usecs % 1000);
+	}
+	else
+		*duration_msg = '\0';
 
 	/* Allocate the new log string */
-    tmp_log_query = palloc(strlen(log_label) + strlen(query) + 4096);
+	tmp_log_query = palloc(strlen(log_label) + strlen(duration_msg) + strlen(query) + 4096);
 	if (tmp_log_query == NULL)
 		return NULL;
+
 	/* not sure why this is needed */
 	tmp_log_query[0] = '\0';
+
+	/* add duration information if available */
+	if (strlen(duration_msg) > 0)
+		strncat(tmp_log_query, duration_msg, strlen(duration_msg));
 
 	/* Parse the log_label string */
 	format_len = strlen(log_label);

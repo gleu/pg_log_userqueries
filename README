@@ -30,6 +30,7 @@ You'll be able to set the two following parameters:
   (WARNING by default)
 * pg_log_userqueries.log_label: to give the prefix of the log line for
   pg_log_userqueries logs (defaults to the name of the extension).
+* pg_log_userqueries.log_duration: to log statement duration time in ms.
 
 Once this configuration is done, restart PostgreSQL.
 
