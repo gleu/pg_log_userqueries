@@ -740,7 +740,7 @@ pgluq_log(const char *query)
 		if (openlog_done)
 			write_syslog(syslog_level, tmp_log_query);
 		else
-			elog(log_level, "%s", tmp_log_query);
+			ereport(log_level, (errmsg("%s", tmp_log_query), errhidestmt(true)));
 
 		/* Free the string */
 		pfree(tmp_log_query);
