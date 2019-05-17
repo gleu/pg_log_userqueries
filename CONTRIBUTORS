@@ -2,6 +2,7 @@ List of contributors
 ====================
 
 Gilles Darold
+ * support for logging specific application name
  * support for logging statement duration
  * support for logging specific queries
  * support for match all feature

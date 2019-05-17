@@ -81,11 +81,13 @@ static char *  log_user = NULL;
 static char *  log_db = NULL;
 static char *  log_addr = NULL;
 static char *  log_query = NULL;
+static char *  log_app = NULL;
 static bool    log_superusers = false;
 static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
 static regex_t db_regexv;
 static regex_t addr_regexv;
+static regex_t app_regexv;
 static regex_t query_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
@@ -219,6 +221,18 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_app",
+				"Log statement according to the given application name.",
+				NULL,
+				&log_app,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
    DefineCustomEnumVariable( "pg_log_userqueries.log_destination",
 				"Selects log destination (either stderr or syslog).",
 				NULL,
@@ -308,7 +322,7 @@ _PG_init(void)
 				NULL,
 				NULL );
     DefineCustomBoolVariable( "pg_log_queries.match_all",
-				"Log statement only when all defined conditions for log_user, log_db, log_addr and log_query match.",
+				"Log statement only when all defined conditions for log_user, log_db, log_addr, log_app and log_query match.",
 				NULL,
 				&match_all,
 				false,
@@ -367,6 +381,18 @@ _PG_init(void)
 		if (regcomp(&addr_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
+	/* Compile regexp for application name */
+	if (log_app != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_app) + 5));
+		sprintf(tmp, "^(%s)$", log_app);
+		if (regcomp(&app_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid application name pattern %s", tmp)));
 		}
 		pfree(tmp);
 	}
@@ -577,6 +603,7 @@ static bool pgluq_check_log()
 	char *dbname  = NULL;
 	char *username = NULL;
 	char *addr = NULL;
+	char *appname  = NULL;
 	bool ret = false;
 
 	if (check_switchoff())
@@ -592,11 +619,14 @@ static bool pgluq_check_log()
 	/* Get the database name */
 	dbname = get_database_name(MyDatabaseId);
 
+	if (MyProcPort)
+		appname = application_name;
+
 	/*
 	 * If there are no username and dbname set, it's a background worker
 	 * and we don't want to log that kind of activity
 	 */
-	if (!username && !dbname)
+	if (!username && !dbname && !appname)
 		return false;
 
 	/*
@@ -604,13 +634,13 @@ static bool pgluq_check_log()
 	 * log only superuser queries
 	 */
 
-	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && (log_query == NULL) && superuser())
+	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && (log_app == NULL) && (log_query == NULL) && superuser())
 		return true;
 
 	/*
 	 * New behaviour
 	 * if superuser and log_superuser are true, then log
-	 * if log_db, log_user, or log_addr is set, then log if regexp matches
+	 * if log_db, log_user, log_addr or log_app is set, then log if regexp matches
 	 */
 
 	/* Check superuser */
@@ -645,6 +675,18 @@ static bool pgluq_check_log()
  	} else if (match_all && (log_db != NULL)) {
  		return false;
  	}
+
+	/* Check the application name */
+	if ((log_app != NULL) && (regexec(&app_regexv, appname, 0, 0, 0) == 0))
+ 	{
+ 		if (match_all == false)
+ 			return true;
+ 		else
+ 			ret = true;
+ 	} else if (match_all && (log_app != NULL)) {
+ 		return false;
+ 	}
+
 
     /* Check the inet address */
     if (MyProcPort)

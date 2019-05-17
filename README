@@ -39,13 +39,14 @@ You can specify exactly what you want to log:
 If none of the following four variables is set, all queries issued by superusers will be logged
 in all databases, and only those.
 
-If you set any of log_db, log_user, log_addr or log_query superuser, queries won't be
+If you set any of log_db, log_user, log_addr, log_app or log_query superuser, queries won't be
 systematically logged, and you'll have to set log_superusers to on to reactivate it.
 
 * pg_log_userqueries.log_superusers: to turn on/off logging of all superusers (off by default)
 * pg_log_userqueries.log_db: to give a pipe (|) separated list of database to log.
 * pg_log_userqueries.log_user: to give a pipe separated list of user to log.
 * pg_log_userqueries.log_addr: to give a pipe separated list of IP addresses to log.
+* pg_log_userqueries.log_app: to give a pipe separated list of application name to log.
 
 You can use advanced regular expression in that list. For example:
 
@@ -66,7 +67,7 @@ For example, to only log calls related to prepared transaction statements, you c
 This filter will be applied after all other filters. For example if you have set log_user
 but the user don't match nothing will be logged even if the query regexp match.
 
-By default log_user, log_db and log_addr are checked in this order and the first matching
+By default log_user, log_db, log_app and log_addr are checked in this order and the first matching
 value will write to the log if log_query is not set or log_query match. If you want that
 all of them, when defined, must match to write to log activate the match_all directive. In
 this case it will log statements only when defined filters for log_user, log_db, log_addr
