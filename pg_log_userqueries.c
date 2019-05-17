@@ -770,7 +770,7 @@ log_prefix(const char *query)
 		snprintf(duration_msg, 60, "duration: %ld.%03d ms  statement: ",secs * 1000 + msecs, usecs % 1000);
 	}
 	else
-		strcat(duration_msg, "statement: ");
+		strcpy(duration_msg, "statement: ");
 
 	/* Allocate the new log string */
 	tmp_log_query = palloc(strlen(log_label) + strlen(duration_msg) + strlen(query) + 4096);
