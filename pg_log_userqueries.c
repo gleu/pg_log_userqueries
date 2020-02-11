@@ -966,10 +966,16 @@ static bool check_time_switch(void)
 
 	if (time(&cur_time) == -1)
 	{
+		int save_errno = errno;
 		elog(log_level,
 			"Unable to get current time: %s (%d).",
+#if PG_VERSION_NUM >= 120000
+			pg_strerror(save_errno),
+			save_errno);
+#else
 			strerror(errno),
 			errno);
+#endif
     }
 
 	if ((int)(cur_time-ref_time) > time_switchoff)
@@ -1003,11 +1009,17 @@ static bool check_switchoff(void)
 		{
 			if (errno != 2)
 			{
+				int save_errno = errno;
 				elog(WARNING,
 					"Unable to get switchoff file stats (%s): %s (%d).",
 					file_switchoff,
-					strerror(errno),
+#if PG_VERSION_NUM >= 120000
+				  pg_strerror(save_errno),
+				  save_errno);
+#else
+			    strerror(errno),
 					errno);
+#endif
 			}
 			if (switch_off) /* write once */
 				elog(NOTICE, "Switch off file unfound. Switching on pg_log_userqueries.");
