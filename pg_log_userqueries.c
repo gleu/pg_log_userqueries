@@ -325,7 +325,7 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
-    DefineCustomBoolVariable( "pg_log_queries.match_all",
+    DefineCustomBoolVariable( "pg_log_userqueries.match_all",
 				"Log statement only when all defined conditions for log_user, log_db, log_addr, log_app and log_query match.",
 				NULL,
 				&match_all,
