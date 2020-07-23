@@ -67,13 +67,16 @@ For example, to only log calls related to prepared transaction statements, you c
 This filter will be applied after all other filters. For example if you have set log_user
 but the user don't match nothing will be logged even if the query regexp match.
 
-By default log_user, log_db, log_app and log_addr are checked in this order and the first matching
-value will write to the log if log_query is not set or log_query match. If you want that
-all of them, when defined, must match to write to log activate the match_all directive. In
-this case it will log statements only when defined filters for log_user, log_db, log_addr
-and log_query all match.
+By default, if log_superusers is set, the filter is checked first and the query
+is logged if the user has the superuser attribute.  Then log_user, log_db,
+log_app and log_addr are checked in this order and the first matching value
+will write to the log if log_query is not set or log_query match. If you want
+that all of the filters, when defined, must match to write to log, activate the
+match_all directive. In this case it will log statements only when defined
+filters for log_user, log_db, log_addr and log_query all match. These filters
+will aso apply to superuser queries if the corresponding directive is checked.
 
-* pg_log_queries.match_all='on'
+* pg_log_userqueries.match_all='on'
 
 By default, pg_log_userqueries will write queries to PostgreSQL log destination.
 A superuser can change this behavior with the pg_log_userqueries.log_destination
