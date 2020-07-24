@@ -870,10 +870,10 @@ log_prefix(const char *query)
 				break;
 			case 'p':
 				sprintf(pid, "%d", MyProcPid);
-                strncat(tmp_log_query, pid, strlen(pid));
+                strcat(tmp_log_query, pid);
 				break;
 			case '%':
-				strncat(tmp_log_query, "%", 1);
+				strcat(tmp_log_query, "%");
 				break;
 			default:
 				/* format error - ignore it */
@@ -887,7 +887,7 @@ log_prefix(const char *query)
 
 	/* add duration information if available */
 	if (strlen(duration_msg) > 0)
-		strncat(tmp_log_query, duration_msg, strlen(duration_msg));
+		strcat(tmp_log_query, duration_msg);
 
 	/* Add the query at the end */
 	strcat(tmp_log_query, query);
