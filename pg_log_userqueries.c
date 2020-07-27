@@ -20,6 +20,8 @@
 #include <utils/timestamp.h>
 #include <access/xact.h>
 
+#include <storage/proc.h>
+
 /*
  * We won't use PostgreSQL regexps,
  * and as they redefine some system regexps types, we make sure we don't
@@ -642,6 +644,12 @@ static bool pgluq_check_log()
 	if (check_switchoff())
 		return false;
 
+	/*
+	 * We don't want to log the activity of background workers.
+	 */
+	if (MyProc->isBackgroundWorker)
+		return false;
+
 	/* Get the user name */
 #if PG_VERSION_NUM >= 90500
 	username = GetUserNameFromId(GetUserId(), false);
@@ -654,13 +662,6 @@ static bool pgluq_check_log()
 
 	if (MyProcPort)
 		appname = application_name;
-
-	/*
-	 * If there are no username and dbname set, it's a background worker
-	 * and we don't want to log that kind of activity
-	 */
-	if (!username && !dbname && !appname)
-		return false;
 
 	/*
 	 * Default behavior
