@@ -644,11 +644,13 @@ static bool pgluq_check_log()
 	if (check_switchoff())
 		return false;
 
+#if PG_VERSION_NUM >= 90602
 	/*
 	 * We don't want to log the activity of background workers.
 	 */
 	if (MyProc->isBackgroundWorker)
 		return false;
+#endif
 
 	/* Get the user name */
 #if PG_VERSION_NUM >= 90500
@@ -662,6 +664,15 @@ static bool pgluq_check_log()
 
 	if (MyProcPort)
 		appname = application_name;
+
+#if PG_VERSION_NUM < 90602
+	/*
+	 * If there are no username and dbname set, it's a background worker
+	 * and we don't want to log that kind of activity
+	 */
+	if (!username && !dbname && !appname)
+		return false;
+#endif
 
 	/*
 	 * Default behavior
