@@ -80,17 +80,27 @@ static const struct config_enum_entry syslog_facility_options[] = {
 static int     log_level = WARNING;
 static char *  log_label = NULL;
 static char *  log_user = NULL;
+static char *  log_user_blacklist = NULL;
 static char *  log_db = NULL;
+static char *  log_db_blacklist = NULL;
 static char *  log_addr = NULL;
+static char *  log_addr_blacklist = NULL;
 static char *  log_query = NULL;
+static char *  log_query_blacklist = NULL;
 static char *  log_app = NULL;
+static char *  log_app_blacklist = NULL;
 static bool    log_superusers = false;
 static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
+static regex_t usr_bl_regexv;
 static regex_t db_regexv;
+static regex_t db_bl_regexv;
 static regex_t addr_regexv;
+static regex_t addr_bl_regexv;
 static regex_t app_regexv;
+static regex_t app_bl_regexv;
 static regex_t query_regexv;
+static regex_t query_bl_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
 static int     log_destination = 1; /* aka stderr */
@@ -200,10 +210,34 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_user_blacklist",
+				"Do not log statement from user in this list.",
+				NULL,
+				&log_user_blacklist,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_db",
 				"Log statement according to the given database.",
 				NULL,
 				&log_db,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_db_blacklist",
+				"Do not log statement in databases in this list.",
+				NULL,
+				&log_db_blacklist,
 				NULL,
 				PGC_POSTMASTER,
 				0,
@@ -224,10 +258,34 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_addr_blacklist",
+				"Do not log statement from addresses in this list.",
+				NULL,
+				&log_addr_blacklist,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_app",
 				"Log statement according to the given application name.",
 				NULL,
 				&log_app,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_app_blacklist",
+				"Do not log statement from the applications in this list.",
+				NULL,
+				&log_app_blacklist,
 				NULL,
 				PGC_POSTMASTER,
 				0,
@@ -336,6 +394,18 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL);
+   DefineCustomStringVariable( "pg_log_userqueries.log_query_blacklist",
+				"Do not log statement in this list.",
+				NULL,
+				&log_query_blacklist,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
 	DefineCustomBoolVariable( "pg_log_userqueries.log_duration",
 				"Enable log of query duration.",
 				NULL,
@@ -363,6 +433,18 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile regexp for user name blacklist */
+	if (log_user_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_user_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_user_blacklist);
+		if (regcomp(&usr_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid user blacklist pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
 	/* Compile regexp for db name */
 	if (log_db != NULL)
 	{
@@ -372,6 +454,18 @@ _PG_init(void)
 		if (regcomp(&db_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
+	/* Compile regexp for db name blacklist */
+	if (log_db_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_db_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_db_blacklist);
+		if (regcomp(&db_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database blacklist pattern %s", tmp)));
 		}
 		pfree(tmp);
 	}
@@ -387,6 +481,18 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile regexp for inet addr blacklist */
+	if (log_addr_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_addr_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_addr_blacklist);
+		if (regcomp(&addr_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address blacklist pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
 	/* Compile regexp for application name */
 	if (log_app != NULL)
 	{
@@ -399,12 +505,32 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile regexp for application name blacklist */
+	if (log_app_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_app_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_app_blacklist);
+		if (regcomp(&app_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid application name blacklist pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
 	/* Compile rexgep to log statement */
 	if (log_query != NULL)
 	{
 		if (regcomp(&query_regexv, log_query, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp pattern %s", log_query)));
+		}
+	}
+	/* Compile rexgep from the log statement blacklist */
+	if (log_query_blacklist != NULL)
+	{
+		if (regcomp(&query_bl_regexv, log_query_blacklist, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp blacklist pattern %s", log_query_blacklist)));
 		}
 	}
 
@@ -607,6 +733,8 @@ static bool pgluq_check_log()
 	char *addr = NULL;
 	char *appname  = NULL;
 	bool ret = false;
+	bool has_passed_wl = false;
+	bool has_passed_bl = false;
 
 	if (check_switchoff())
 		return false;
@@ -646,7 +774,11 @@ static bool pgluq_check_log()
 	 * log only superuser queries
 	 */
 
-	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && (log_app == NULL) && (log_query == NULL) && superuser())
+	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) &&
+	    (log_app == NULL) && (log_query == NULL) && superuser() &&
+	    (log_db_blacklist == NULL) && (log_user_blacklist == NULL) &&
+	    (log_app_blacklist == NULL) && (log_addr_blacklist) &&
+	    (log_query_blacklist))
 		return true;
 
 	/*
@@ -666,54 +798,99 @@ static bool pgluq_check_log()
 
 	/* Check the user name */
 	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
- 	{
+		has_passed_wl = true;
+	else if ((log_user == NULL) && (log_user_blacklist != NULL))
+		has_passed_wl = true;
+
+	if ((log_user_blacklist != NULL) && (regexec(&usr_bl_regexv, username, 0, 0, 0) != 0))
+		has_passed_bl= true;
+	else if ((log_user_blacklist == NULL) && (log_user != NULL))
+		has_passed_bl= true;
+
+	if (has_passed_wl && has_passed_bl) {
  		if (match_all == false)
  			return true;
  		else
  			ret = true;
- 	} else if (match_all && (log_user != NULL)) {
+ 	} else if (match_all) {
  		return false;
  	}
 
 	/* Check the database name */
+	has_passed_wl = false;
+	has_passed_bl= false;
+
 	if (dbname == NULL || *dbname == '\0')
 		dbname = _("unknown");
+
 	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
- 	{
+		has_passed_wl = true;
+	if ((log_db == NULL) && (log_db_blacklist != NULL))
+		has_passed_wl = true;
+
+	if ((log_db_blacklist != NULL) && (regexec(&db_bl_regexv, dbname, 0, 0, 0) != 0))
+		has_passed_bl = true;
+	if ((log_db_blacklist == NULL) && (log_db != NULL))
+		has_passed_bl = true;
+
+	if (has_passed_wl && has_passed_bl) {
  		if (match_all == false)
  			return true;
  		else
  			ret = true;
- 	} else if (match_all && (log_db != NULL)) {
+	} else if (match_all) {
  		return false;
  	}
 
 	/* Check the application name */
+	has_passed_wl = false;
+	has_passed_bl= false;
+
 	if ((log_app != NULL) && (regexec(&app_regexv, appname, 0, 0, 0) == 0))
- 	{
+		has_passed_wl = true;
+	if ((log_app == NULL) && (log_app_blacklist != NULL))
+		has_passed_wl = true;
+
+	if ((log_app_blacklist != NULL) && (regexec(&app_bl_regexv, appname, 0, 0, 0) != 0))
+		has_passed_bl = true;
+	if ((log_app_blacklist == NULL) && (log_app != NULL))
+		has_passed_bl = true;
+
+	if (has_passed_wl && has_passed_bl) {
  		if (match_all == false)
  			return true;
  		else
  			ret = true;
- 	} else if (match_all && (log_app != NULL)) {
+ 	} else if (match_all) {
  		return false;
  	}
 
+	/* Check the inet address */
+	if (MyProcPort)
+	{
+		has_passed_wl = false;
+		has_passed_bl= false;
 
-    /* Check the inet address */
-    if (MyProcPort)
-    {
-        addr = MyProcPort->remote_host;
-        if ((log_addr != NULL) && regexec(&addr_regexv, addr , 0, 0, 0) == 0)
- 	{
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all && (log_addr != NULL)) {
- 		return false;
- 	}
-    }
+		addr = MyProcPort->remote_host;
+	        if ((log_addr != NULL) && regexec(&addr_regexv, addr , 0, 0, 0) == 0)
+			has_passed_wl = true;
+		if ((log_addr == NULL) && (log_addr_blacklist != NULL))
+			has_passed_wl = true;
+
+	        if ((log_addr_blacklist != NULL) && regexec(&addr_bl_regexv, addr , 0, 0, 0) == 0)
+			has_passed_bl = true;
+		if ((log_addr_blacklist == NULL) && (log_addr != NULL))
+			has_passed_bl = true;
+
+		if (has_passed_wl && has_passed_bl) {
+			if (match_all == false)
+				return true;
+			else
+				ret = true;
+		} else if (match_all) {
+			return false;
+		}
+	}
 
 	/* Didn't find any interesting condition */
 	return ret;
@@ -726,13 +903,35 @@ static void
 pgluq_log(const char *query)
 {
 	char *tmp_log_query = NULL;
+	bool has_passed_wl = false;
+	bool has_passed_bl = false;
 
 	Assert(query != NULL);
 
-	/* when log regexp statement is set do not log the query if it doesn't match the regexp */
-	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) != 0))
+	/* Check if the query have already been logged in the utility hook */
+	if (logged_in_utility_hook)
+	{
+		logged_in_utility_hook = false;
+		return;
+	}
+	else
+		logged_in_utility_hook = false;
+
+	/* Filter querries according to the white and balck list*/
+	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) == 0))
+		has_passed_wl = true;
+	if ((log_query == NULL) && (log_query_blacklist != NULL))
+		has_passed_wl = true;
+
+	if ((log_query_blacklist != NULL) && (regexec(&query_bl_regexv, query , 0, 0, 0) != 0))
+		has_passed_bl = true;
+	if ((log_query_blacklist == NULL) && (log_query != NULL))
+		has_passed_bl = true;
+
+	if (! has_passed_wl || ! has_passed_bl)
 		return;
 
+	/* Check the inet address */
 	tmp_log_query = log_prefix(query);
 	if (tmp_log_query != NULL)
 	{
