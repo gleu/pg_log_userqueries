@@ -80,17 +80,27 @@ static const struct config_enum_entry syslog_facility_options[] = {
 static int     log_level = WARNING;
 static char *  log_label = NULL;
 static char *  log_user = NULL;
+static char *  log_user_blacklist = NULL;
 static char *  log_db = NULL;
+static char *  log_db_blacklist = NULL;
 static char *  log_addr = NULL;
+static char *  log_addr_blacklist = NULL;
 static char *  log_query = NULL;
+static char *  log_query_blacklist = NULL;
 static char *  log_app = NULL;
+static char *  log_app_blacklist = NULL;
 static bool    log_superusers = false;
 static int     regex_flags = REG_NOSUB;
 static regex_t usr_regexv;
+static regex_t usr_bl_regexv;
 static regex_t db_regexv;
+static regex_t db_bl_regexv;
 static regex_t addr_regexv;
+static regex_t addr_bl_regexv;
 static regex_t app_regexv;
+static regex_t app_bl_regexv;
 static regex_t query_regexv;
+static regex_t query_bl_regexv;
 static bool    openlog_done = false;
 static char *  syslog_ident = NULL;
 static int     log_destination = 1; /* aka stderr */
@@ -143,6 +153,9 @@ static bool check_time_switch(void);
 extern char *get_database_name(Oid dbid);
 extern int pg_mbcliplen(const char *mbstr, int len, int limit);
 
+static bool pgluq_checkitem(const char *item,
+				const char *log_wl, regex_t *regex_wl,
+				const char *log_bl, regex_t *regex_bl);
 /*
  * Module load callback
  */
@@ -200,10 +213,34 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_user_blacklist",
+				"Do not log statement from user in this list.",
+				NULL,
+				&log_user_blacklist,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_db",
 				"Log statement according to the given database.",
 				NULL,
 				&log_db,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_db_blacklist",
+				"Do not log statement in databases in this list.",
+				NULL,
+				&log_db_blacklist,
 				NULL,
 				PGC_POSTMASTER,
 				0,
@@ -224,10 +261,34 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_addr_blacklist",
+				"Do not log statement from addresses in this list.",
+				NULL,
+				&log_addr_blacklist,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
    DefineCustomStringVariable( "pg_log_userqueries.log_app",
 				"Log statement according to the given application name.",
 				NULL,
 				&log_app,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
+   DefineCustomStringVariable( "pg_log_userqueries.log_app_blacklist",
+				"Do not log statement from the applications in this list.",
+				NULL,
+				&log_app_blacklist,
 				NULL,
 				PGC_POSTMASTER,
 				0,
@@ -336,6 +397,18 @@ _PG_init(void)
 #endif
 				NULL,
 				NULL);
+   DefineCustomStringVariable( "pg_log_userqueries.log_query_blacklist",
+				"Do not log statement in this list.",
+				NULL,
+				&log_query_blacklist,
+				NULL,
+				PGC_POSTMASTER,
+				0,
+#if PG_VERSION_NUM >= 90100
+				NULL,
+#endif
+				NULL,
+				NULL );
 	DefineCustomBoolVariable( "pg_log_userqueries.log_duration",
 				"Enable log of query duration.",
 				NULL,
@@ -363,6 +436,18 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile regexp for user name blacklist */
+	if (log_user_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_user_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_user_blacklist);
+		if (regcomp(&usr_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid user blacklist pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
 	/* Compile regexp for db name */
 	if (log_db != NULL)
 	{
@@ -372,6 +457,18 @@ _PG_init(void)
 		if (regcomp(&db_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
+	/* Compile regexp for db name blacklist */
+	if (log_db_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_db_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_db_blacklist);
+		if (regcomp(&db_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database blacklist pattern %s", tmp)));
 		}
 		pfree(tmp);
 	}
@@ -387,6 +484,18 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile regexp for inet addr blacklist */
+	if (log_addr_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_addr_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_addr_blacklist);
+		if (regcomp(&addr_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address blacklist pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
 	/* Compile regexp for application name */
 	if (log_app != NULL)
 	{
@@ -399,12 +508,32 @@ _PG_init(void)
 		}
 		pfree(tmp);
 	}
+	/* Compile regexp for application name blacklist */
+	if (log_app_blacklist != NULL)
+	{
+		char *tmp;
+		tmp = palloc(sizeof(char) * (strlen(log_app_blacklist) + 5));
+		sprintf(tmp, "^(%s)$", log_app_blacklist);
+		if (regcomp(&app_bl_regexv, tmp, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid application name blacklist pattern %s", tmp)));
+		}
+		pfree(tmp);
+	}
 	/* Compile rexgep to log statement */
 	if (log_query != NULL)
 	{
 		if (regcomp(&query_regexv, log_query, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp pattern %s", log_query)));
+		}
+	}
+	/* Compile rexgep from the log statement blacklist */
+	if (log_query_blacklist != NULL)
+	{
+		if (regcomp(&query_bl_regexv, log_query_blacklist, regex_flags) != 0)
+		{
+			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp blacklist pattern %s", log_query_blacklist)));
 		}
 	}
 
@@ -597,6 +726,28 @@ pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 #endif
 
 /*
+ * Check an item
+ */
+static bool pgluq_checkitem(const char *item,
+				const char *log_wl, regex_t *regex_wl,
+				const char *log_bl, regex_t *regex_bl)
+{
+	bool has_passed_wl = true;
+	bool has_passed_bl = true;
+
+	if ((log_wl != NULL) && (regexec(regex_wl, item, 0, 0, 0) != 0))
+		has_passed_wl = false;
+
+	if ((log_bl != NULL) && (regexec(regex_bl, item, 0, 0, 0) == 0))
+		has_passed_bl= false;
+
+	if (! has_passed_wl || ! has_passed_bl) {
+ 		return false;
+	}
+ 	return true;
+}
+
+/*
  * Check if we should log
  */
 static bool pgluq_check_log()
@@ -607,6 +758,7 @@ static bool pgluq_check_log()
 	char *addr = NULL;
 	char *appname  = NULL;
 	bool ret = false;
+	bool rc;
 
 	if (check_switchoff())
 		return false;
@@ -646,13 +798,19 @@ static bool pgluq_check_log()
 	 * log only superuser queries
 	 */
 
-	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) && (log_app == NULL) && (log_query == NULL) && superuser())
+	if ((log_db == NULL) && (log_db_blacklist == NULL) &&
+	    (log_user == NULL) && (log_user_blacklist == NULL) &&
+	    (log_addr == NULL) && (log_app_blacklist == NULL) &&
+	    (log_app == NULL) && (log_addr_blacklist == NULL) &&
+	    (log_query == NULL) &&(log_query_blacklist == NULL) &&
+	    superuser())
 		return true;
 
 	/*
-	 * New behaviour
-	 * if superuser and log_superuser are true, then log
-	 * if log_db, log_user, log_addr or log_app is set, then log if regexp matches
+	 * New behaviour if superuser and log_superuser are true, then log
+	 * if log_db, log_db_blacklist, log_user, log_user_blacklist, log_addr,
+	 * log_addr_blacklist, log_app or log_app_blacklist is set, then log if
+	 * regexp matches
 	 */
 
 	/* Check superuser */
@@ -665,55 +823,70 @@ static bool pgluq_check_log()
  	}
 
 	/* Check the user name */
-	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
- 	{
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all && (log_user != NULL)) {
- 		return false;
- 	}
+	if (log_user != NULL || log_user_blacklist != NULL) {
+		rc = pgluq_checkitem(	username,
+					log_user, &usr_regexv,
+					log_user_blacklist, &usr_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
 	/* Check the database name */
-	if (dbname == NULL || *dbname == '\0')
-		dbname = _("unknown");
-	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
- 	{
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all && (log_db != NULL)) {
- 		return false;
- 	}
+	if (log_db != NULL || log_db_blacklist != NULL) {
+		rc =pgluq_checkitem(	dbname,
+					log_db, &db_regexv,
+					log_db_blacklist, &db_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
 	/* Check the application name */
-	if ((log_app != NULL) && (regexec(&app_regexv, appname, 0, 0, 0) == 0))
- 	{
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all && (log_app != NULL)) {
- 		return false;
- 	}
+	if (log_app != NULL || log_app_blacklist != NULL) {
+		rc = pgluq_checkitem(	appname,
+					log_app, &app_regexv,
+					log_app_blacklist, &app_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
-
-    /* Check the inet address */
-    if (MyProcPort)
-    {
-        addr = MyProcPort->remote_host;
-        if ((log_addr != NULL) && regexec(&addr_regexv, addr , 0, 0, 0) == 0)
- 	{
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all && (log_addr != NULL)) {
- 		return false;
- 	}
-    }
+	/* Check the inet address */
+	if ((log_addr != NULL || log_addr_blacklist != NULL) && MyProcPort)
+	{
+		addr = MyProcPort->remote_host;
+		rc = pgluq_checkitem(	addr,
+					log_addr, &addr_regexv,
+					log_addr_blacklist, &addr_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
 	/* Didn't find any interesting condition */
 	return ret;
@@ -729,9 +902,13 @@ pgluq_log(const char *query)
 
 	Assert(query != NULL);
 
-	/* when log regexp statement is set do not log the query if it doesn't match the regexp */
-	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) != 0))
-		return;
+	/* Filter querries according to the white and black list*/
+	if (log_query != NULL || log_query_blacklist != NULL) {
+		if ( ! pgluq_checkitem(	query,
+					log_query, &query_regexv,
+					log_query_blacklist, &query_bl_regexv))
+			return;
+	}
 
 	tmp_log_query = log_prefix(query);
 	if (tmp_log_query != NULL)

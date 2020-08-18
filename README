@@ -36,17 +36,35 @@ Once this configuration is done, restart PostgreSQL.
 
 You can specify exactly what you want to log:
 
-If none of the following four variables is set, all queries issued by superusers will be logged
+If none of the following variables is set, all queries issued by superusers will be logged
 in all databases, and only those.
 
-If you set any of log_db, log_user, log_addr, log_app or log_query superuser, queries won't be
-systematically logged, and you'll have to set log_superusers to on to reactivate it.
+If you set any of log_db, log_db_blacklist, log_user, log_user_blacklist,
+log_addr, log_addr_blacklist, log_app, log_app_blacklist, log_query or
+log_query_blacklist, superuser queries won't be systematically logged, and
+you'll have to set log_superusers to on to reactivate it.
 
 * pg_log_userqueries.log_superusers: to turn on/off logging of all superusers (off by default)
 * pg_log_userqueries.log_db: to give a pipe (|) separated list of database to log.
+* pg_log_userqueries.log_db_blacklist: to give a pipe (|) separated list of database to avoid logging.
 * pg_log_userqueries.log_user: to give a pipe separated list of user to log.
+* pg_log_userqueries.log_user_blacklist: to give a pipe separated list of user to avoid logging.
 * pg_log_userqueries.log_addr: to give a pipe separated list of IP addresses to log.
+* pg_log_userqueries.log_addr_blacklist: to give a pipe separated list of IP addresses to avoid logging.
 * pg_log_userqueries.log_app: to give a pipe separated list of application name to log.
+* pg_log_userqueries.log_app_blacklist: to give a pipe separated list of application name to avoid logging.
+
+For a query to be logged, it needs to :
+* match the white list of a filter (eg: log_db) AND
+* not match the back list of that filter (eg: log_db_blacklist).
+
+For example :
+
+* pg_log_userqueries.log_db="application_.*"
+* pg_log_userqueries.log_db_blacklist="application_test"
+
+This will log queries on all databases starting with "application_" except for
+the database "application_test".
 
 You can use advanced regular expression in that list. For example:
 
