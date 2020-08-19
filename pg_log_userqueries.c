@@ -153,6 +153,9 @@ static bool check_time_switch(void);
 extern char *get_database_name(Oid dbid);
 extern int pg_mbcliplen(const char *mbstr, int len, int limit);
 
+static bool pgluq_checkitem(const char *item,
+				const char *log_wl, regex_t *regex_wl,
+				const char *log_bl, regex_t *regex_bl);
 /*
  * Module load callback
  */
@@ -723,6 +726,28 @@ pgluq_ProcessUtility(Node *parsetree, const char *queryString,
 #endif
 
 /*
+ * Check an item
+ */
+static bool pgluq_checkitem(const char *item,
+				const char *log_wl, regex_t *regex_wl,
+				const char *log_bl, regex_t *regex_bl)
+{
+	bool has_passed_wl = true;
+	bool has_passed_bl = true;
+
+	if ((log_wl != NULL) && (regexec(regex_wl, item, 0, 0, 0) != 0))
+		has_passed_wl = false;
+
+	if ((log_bl != NULL) && (regexec(regex_bl, item, 0, 0, 0) == 0))
+		has_passed_bl= false;
+
+	if (! has_passed_wl || ! has_passed_bl) {
+ 		return false;
+	}
+ 	return true;
+}
+
+/*
  * Check if we should log
  */
 static bool pgluq_check_log()
@@ -733,8 +758,6 @@ static bool pgluq_check_log()
 	char *addr = NULL;
 	char *appname  = NULL;
 	bool ret = false;
-	bool has_passed_wl = false;
-	bool has_passed_bl = false;
 
 	if (check_switchoff())
 		return false;
@@ -797,98 +820,68 @@ static bool pgluq_check_log()
  	}
 
 	/* Check the user name */
-	if ((log_user != NULL) && (regexec(&usr_regexv, username, 0, 0, 0) == 0))
-		has_passed_wl = true;
-	else if ((log_user == NULL) && (log_user_blacklist != NULL))
-		has_passed_wl = true;
-
-	if ((log_user_blacklist != NULL) && (regexec(&usr_bl_regexv, username, 0, 0, 0) != 0))
-		has_passed_bl= true;
-	else if ((log_user_blacklist == NULL) && (log_user != NULL))
-		has_passed_bl= true;
-
-	if (has_passed_wl && has_passed_bl) {
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all) {
- 		return false;
- 	}
+	if (log_user != NULL || log_user_blacklist != NULL) {
+		bool rc = pgluq_checkitem(	username,
+						log_user, &usr_regexv,
+						log_user_blacklist, &usr_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
 	/* Check the database name */
-	has_passed_wl = false;
-	has_passed_bl= false;
-
-	if (dbname == NULL || *dbname == '\0')
-		dbname = _("unknown");
-
-	if ((log_db != NULL) && (regexec(&db_regexv, dbname, 0, 0, 0) == 0))
-		has_passed_wl = true;
-	if ((log_db == NULL) && (log_db_blacklist != NULL))
-		has_passed_wl = true;
-
-	if ((log_db_blacklist != NULL) && (regexec(&db_bl_regexv, dbname, 0, 0, 0) != 0))
-		has_passed_bl = true;
-	if ((log_db_blacklist == NULL) && (log_db != NULL))
-		has_passed_bl = true;
-
-	if (has_passed_wl && has_passed_bl) {
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
-	} else if (match_all) {
- 		return false;
- 	}
+	if (log_db != NULL || log_db_blacklist != NULL) {
+		bool rc =pgluq_checkitem(	dbname,
+						log_db, &db_regexv,
+						log_db_blacklist, &db_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
 	/* Check the application name */
-	has_passed_wl = false;
-	has_passed_bl= false;
-
-	if ((log_app != NULL) && (regexec(&app_regexv, appname, 0, 0, 0) == 0))
-		has_passed_wl = true;
-	if ((log_app == NULL) && (log_app_blacklist != NULL))
-		has_passed_wl = true;
-
-	if ((log_app_blacklist != NULL) && (regexec(&app_bl_regexv, appname, 0, 0, 0) != 0))
-		has_passed_bl = true;
-	if ((log_app_blacklist == NULL) && (log_app != NULL))
-		has_passed_bl = true;
-
-	if (has_passed_wl && has_passed_bl) {
- 		if (match_all == false)
- 			return true;
- 		else
- 			ret = true;
- 	} else if (match_all) {
- 		return false;
- 	}
+	if (log_app != NULL || log_app_blacklist != NULL) {
+		bool rc = pgluq_checkitem(	appname,
+						log_app, &app_regexv,
+						log_app_blacklist, &app_bl_regexv);
+		if (match_all) {
+			if (rc)
+				ret = true;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
+		}
+	}
 
 	/* Check the inet address */
-	if (MyProcPort)
+	if ((log_addr != NULL || log_addr_blacklist != NULL) && MyProcPort)
 	{
-		has_passed_wl = false;
-		has_passed_bl= false;
-
 		addr = MyProcPort->remote_host;
-	        if ((log_addr != NULL) && regexec(&addr_regexv, addr , 0, 0, 0) == 0)
-			has_passed_wl = true;
-		if ((log_addr == NULL) && (log_addr_blacklist != NULL))
-			has_passed_wl = true;
-
-	        if ((log_addr_blacklist != NULL) && regexec(&addr_bl_regexv, addr , 0, 0, 0) == 0)
-			has_passed_bl = true;
-		if ((log_addr_blacklist == NULL) && (log_addr != NULL))
-			has_passed_bl = true;
-
-		if (has_passed_wl && has_passed_bl) {
-			if (match_all == false)
-				return true;
-			else
+		bool rc = pgluq_checkitem(	addr,
+						log_addr, &addr_regexv,
+						log_addr_blacklist, &addr_bl_regexv);
+		if (match_all) {
+			if (rc)
 				ret = true;
-		} else if (match_all) {
-			return false;
+			else
+				return false;
+		} else {
+			if (rc)
+				return true;
 		}
 	}
 
@@ -903,8 +896,8 @@ static void
 pgluq_log(const char *query)
 {
 	char *tmp_log_query = NULL;
-	bool has_passed_wl = false;
-	bool has_passed_bl = false;
+	bool has_passed_wl = true;
+	bool has_passed_bl = true;
 
 	Assert(query != NULL);
 
@@ -918,15 +911,11 @@ pgluq_log(const char *query)
 		logged_in_utility_hook = false;
 
 	/* Filter querries according to the white and balck list*/
-	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) == 0))
-		has_passed_wl = true;
-	if ((log_query == NULL) && (log_query_blacklist != NULL))
-		has_passed_wl = true;
+	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) != 0))
+		has_passed_wl = false;
 
-	if ((log_query_blacklist != NULL) && (regexec(&query_bl_regexv, query , 0, 0, 0) != 0))
-		has_passed_bl = true;
-	if ((log_query_blacklist == NULL) && (log_query != NULL))
-		has_passed_bl = true;
+	if ((log_query_blacklist != NULL) && (regexec(&query_bl_regexv, query , 0, 0, 0) == 0))
+		has_passed_bl = false;
 
 	if (! has_passed_wl || ! has_passed_bl)
 		return;
