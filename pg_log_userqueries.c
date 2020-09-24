@@ -911,14 +911,12 @@ pgluq_log(const char *query)
 		logged_in_utility_hook = false;
 
 	/* Filter querries according to the white and balck list*/
-	if ((log_query != NULL) && (regexec(&query_regexv, query, 0, 0, 0) != 0))
-		has_passed_wl = false;
-
-	if ((log_query_blacklist != NULL) && (regexec(&query_bl_regexv, query , 0, 0, 0) == 0))
-		has_passed_bl = false;
-
-	if (! has_passed_wl || ! has_passed_bl)
-		return;
+	if (log_query != NULL || log_query_blacklist != NULL) {
+		if ( ! pgluq_checkitem(	appname,
+					log_app, &app_regexv,
+					log_app_blacklist, &app_bl_regexv))
+			return;
+	}
 
 	/* Check the inet address */
 	tmp_log_query = log_prefix(query);
