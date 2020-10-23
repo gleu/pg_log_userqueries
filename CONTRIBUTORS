@@ -18,4 +18,7 @@ Marc Cousin
 Thibaut Madeleine
  * support for PG v12
 
+Benoît Lobréau
+ * support for filtering out bgworkers
+
 Thanks to all of them!
