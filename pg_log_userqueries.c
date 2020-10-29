@@ -758,6 +758,7 @@ static bool pgluq_check_log()
 	char *addr = NULL;
 	char *appname  = NULL;
 	bool ret = false;
+	bool rc;
 
 	if (check_switchoff())
 		return false;
@@ -821,9 +822,9 @@ static bool pgluq_check_log()
 
 	/* Check the user name */
 	if (log_user != NULL || log_user_blacklist != NULL) {
-		bool rc = pgluq_checkitem(	username,
-						log_user, &usr_regexv,
-						log_user_blacklist, &usr_bl_regexv);
+		rc = pgluq_checkitem(	username,
+					log_user, &usr_regexv,
+					log_user_blacklist, &usr_bl_regexv);
 		if (match_all) {
 			if (rc)
 				ret = true;
@@ -837,9 +838,9 @@ static bool pgluq_check_log()
 
 	/* Check the database name */
 	if (log_db != NULL || log_db_blacklist != NULL) {
-		bool rc =pgluq_checkitem(	dbname,
-						log_db, &db_regexv,
-						log_db_blacklist, &db_bl_regexv);
+		rc =pgluq_checkitem(	dbname,
+					log_db, &db_regexv,
+					log_db_blacklist, &db_bl_regexv);
 		if (match_all) {
 			if (rc)
 				ret = true;
@@ -853,9 +854,9 @@ static bool pgluq_check_log()
 
 	/* Check the application name */
 	if (log_app != NULL || log_app_blacklist != NULL) {
-		bool rc = pgluq_checkitem(	appname,
-						log_app, &app_regexv,
-						log_app_blacklist, &app_bl_regexv);
+		rc = pgluq_checkitem(	appname,
+					log_app, &app_regexv,
+					log_app_blacklist, &app_bl_regexv);
 		if (match_all) {
 			if (rc)
 				ret = true;
@@ -871,9 +872,9 @@ static bool pgluq_check_log()
 	if ((log_addr != NULL || log_addr_blacklist != NULL) && MyProcPort)
 	{
 		addr = MyProcPort->remote_host;
-		bool rc = pgluq_checkitem(	addr,
-						log_addr, &addr_regexv,
-						log_addr_blacklist, &addr_bl_regexv);
+		rc = pgluq_checkitem(	addr,
+					log_addr, &addr_regexv,
+					log_addr_blacklist, &addr_bl_regexv);
 		if (match_all) {
 			if (rc)
 				ret = true;
@@ -896,8 +897,6 @@ static void
 pgluq_log(const char *query)
 {
 	char *tmp_log_query = NULL;
-	bool has_passed_wl = true;
-	bool has_passed_bl = true;
 
 	Assert(query != NULL);
 
@@ -910,11 +909,11 @@ pgluq_log(const char *query)
 	else
 		logged_in_utility_hook = false;
 
-	/* Filter querries according to the white and balck list*/
+	/* Filter querries according to the white and black list*/
 	if (log_query != NULL || log_query_blacklist != NULL) {
-		if ( ! pgluq_checkitem(	appname,
-					log_app, &app_regexv,
-					log_app_blacklist, &app_bl_regexv))
+		if ( ! pgluq_checkitem(	query,
+					log_query, &query_regexv,
+					log_query_blacklist, &query_bl_regexv))
 			return;
 	}
 
