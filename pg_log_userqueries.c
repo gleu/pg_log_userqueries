@@ -798,17 +798,19 @@ static bool pgluq_check_log()
 	 * log only superuser queries
 	 */
 
-	if ((log_db == NULL) && (log_user == NULL) && (log_addr == NULL) &&
-	    (log_app == NULL) && (log_query == NULL) && superuser() &&
-	    (log_db_blacklist == NULL) && (log_user_blacklist == NULL) &&
-	    (log_app_blacklist == NULL) && (log_addr_blacklist) &&
-	    (log_query_blacklist))
+	if ((log_db == NULL) && (log_db_blacklist == NULL) &&
+	    (log_user == NULL) && (log_user_blacklist == NULL) &&
+	    (log_addr == NULL) && (log_app_blacklist == NULL) &&
+	    (log_app == NULL) && (log_addr_blacklist == NULL) &&
+	    (log_query == NULL) &&(log_query_blacklist == NULL) &&
+	    superuser())
 		return true;
 
 	/*
-	 * New behaviour
-	 * if superuser and log_superuser are true, then log
-	 * if log_db, log_user, log_addr or log_app is set, then log if regexp matches
+	 * New behaviour if superuser and log_superuser are true, then log
+	 * if log_db, log_db_blacklist, log_user, log_user_blacklist, log_addr,
+	 * log_addr_blacklist, log_app or log_app_blacklist is set, then log if
+	 * regexp matches
 	 */
 
 	/* Check superuser */
