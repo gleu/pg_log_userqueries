@@ -900,15 +900,6 @@ pgluq_log(const char *query)
 
 	Assert(query != NULL);
 
-	/* Check if the query have already been logged in the utility hook */
-	if (logged_in_utility_hook)
-	{
-		logged_in_utility_hook = false;
-		return;
-	}
-	else
-		logged_in_utility_hook = false;
-
 	/* Filter querries according to the white and black list*/
 	if (log_query != NULL || log_query_blacklist != NULL) {
 		if ( ! pgluq_checkitem(	query,
@@ -917,7 +908,6 @@ pgluq_log(const char *query)
 			return;
 	}
 
-	/* Check the inet address */
 	tmp_log_query = log_prefix(query);
 	if (tmp_log_query != NULL)
 	{
