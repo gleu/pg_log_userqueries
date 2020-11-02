@@ -604,6 +604,28 @@ _PG_fini(void)
 #if PG_VERSION_NUM >= 90000
 	ProcessUtility_hook = prev_ProcessUtility;
 #endif
+
+	/* free the memory allocated by regcomp */
+	if (log_user != NULL)
+		regfree(&usr_regexv);
+	if (log_user_blacklist != NULL)
+		regfree(&usr_bl_regexv);
+	if (log_db != NULL)
+		regfree(&db_regexv);
+	if (log_db_blacklist != NULL)
+		regfree(&db_bl_regexv);
+	if (log_addr != NULL)
+		regfree(&addr_regexv);
+	if (log_addr_blacklist != NULL)
+		regfree(&addr_bl_regexv);
+	if (log_app != NULL)
+		regfree(&app_regexv);
+	if (log_app_blacklist != NULL)
+		regfree(&app_bl_regexv);
+	if (log_query != NULL)
+		regfree(&query_regexv);
+	if (log_query_blacklist != NULL)
+		regfree(&query_bl_regexv);
 }
 
 /*
