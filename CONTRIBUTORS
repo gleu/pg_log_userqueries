@@ -20,5 +20,6 @@ Thibaut Madeleine
 
 Benoît Lobréau
  * support for filtering out bgworkers
+ * support for whitelist and blacklist filters
 
 Thanks to all of them!

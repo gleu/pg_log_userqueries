@@ -1,3 +1,6 @@
 TODO
 ====
 
+* On each log, tell why the query is logged (is it because the
+  user/database/whatever matched?  or is it because it's a superuser?
+* Allow the GUCs to be affected by reload

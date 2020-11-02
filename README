@@ -34,7 +34,7 @@ You'll be able to set the two following parameters:
 
 Once this configuration is done, restart PostgreSQL.
 
-You can specify exactly what you want to log:
+You can specify exactly what you want to log.
 
 If none of the following variables is set, all queries issued by superusers will be logged
 in all databases, and only those.
