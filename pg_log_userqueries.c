@@ -433,6 +433,7 @@ _PG_init(void)
 		if (regcomp(&usr_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid user pattern %s", tmp)));
+			log_user = NULL;
 		}
 		pfree(tmp);
 	}
@@ -445,6 +446,7 @@ _PG_init(void)
 		if (regcomp(&usr_bl_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid user blacklist pattern %s", tmp)));
+			log_user_blacklist = NULL;
 		}
 		pfree(tmp);
 	}
@@ -457,6 +459,7 @@ _PG_init(void)
 		if (regcomp(&db_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database pattern %s", tmp)));
+			log_db = NULL;
 		}
 		pfree(tmp);
 	}
@@ -469,6 +472,7 @@ _PG_init(void)
 		if (regcomp(&db_bl_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid database blacklist pattern %s", tmp)));
+			log_db_blacklist = NULL;
 		}
 		pfree(tmp);
 	}
@@ -481,6 +485,7 @@ _PG_init(void)
 		if (regcomp(&addr_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address pattern %s", tmp)));
+			log_addr = NULL;
 		}
 		pfree(tmp);
 	}
@@ -493,6 +498,7 @@ _PG_init(void)
 		if (regcomp(&addr_bl_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid address blacklist pattern %s", tmp)));
+			log_addr_blacklist = NULL;
 		}
 		pfree(tmp);
 	}
@@ -505,6 +511,7 @@ _PG_init(void)
 		if (regcomp(&app_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid application name pattern %s", tmp)));
+			log_app = NULL;
 		}
 		pfree(tmp);
 	}
@@ -517,6 +524,7 @@ _PG_init(void)
 		if (regcomp(&app_bl_regexv, tmp, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid application name blacklist pattern %s", tmp)));
+			log_app_blacklist = NULL;
 		}
 		pfree(tmp);
 	}
@@ -526,6 +534,7 @@ _PG_init(void)
 		if (regcomp(&query_regexv, log_query, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp pattern %s", log_query)));
+			log_query = NULL;
 		}
 	}
 	/* Compile rexgep from the log statement blacklist */
@@ -534,6 +543,7 @@ _PG_init(void)
 		if (regcomp(&query_bl_regexv, log_query_blacklist, regex_flags) != 0)
 		{
 			ereport(ERROR, (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE), errmsg("pg_log_userqueries: invalid statement regexp blacklist pattern %s", log_query_blacklist)));
+			log_query_blacklist = NULL;
 		}
 	}
 
@@ -605,7 +615,10 @@ _PG_fini(void)
 	ProcessUtility_hook = prev_ProcessUtility;
 #endif
 
-	/* free the memory allocated by regcomp */
+	/* free the memory allocated by regcomp.
+	 * This is safe since we made sure the log_* parameters where reset
+	 * to NULL in case regcomp fails.
+	 */
 	if (log_user != NULL)
 		regfree(&usr_regexv);
 	if (log_user_blacklist != NULL)
