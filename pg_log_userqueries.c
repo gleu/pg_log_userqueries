@@ -1057,7 +1057,7 @@ log_prefix(const char *query)
 
 					if (appname == NULL || *appname == '\0')
 						appname = _("[unknown]");
-                    strncat(tmp_log_query, appname, strlen(appname));
+                    strncat(tmp_log_query, appname, strlen(tmp_log_query));
 				}
 				break;
 #endif
@@ -1072,7 +1072,7 @@ log_prefix(const char *query)
 
 					if (username == NULL || *username == '\0')
 						username = _("[unknown]");
-                    strncat(tmp_log_query, username, strlen(username));
+                    strncat(tmp_log_query, username, strlen(tmp_log_query));
 				}
 				break;
 			case 'd':
@@ -1082,7 +1082,7 @@ log_prefix(const char *query)
 
 					if (dbname == NULL || *dbname == '\0')
 						dbname = _("[unknown]");
-                    strncat(tmp_log_query, dbname, strlen(dbname));
+                    strncat(tmp_log_query, dbname, strlen(tmp_log_query));
 				}
 				break;
 			case 'p':
