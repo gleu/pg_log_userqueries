@@ -126,7 +126,15 @@ void		_PG_init(void);
 void		_PG_fini(void);
 
 static void pgluq_ExecutorEnd(QueryDesc *queryDesc);
-#if PG_VERSION_NUM >= 130000
+#if PG_VERSION_NUM >= 140000
+static void pgluq_ProcessUtility(PlannedStmt *pstmt,
+      const char *queryString,
+      bool readOnlyTree,
+      ProcessUtilityContext context,
+      ParamListInfo params,
+      QueryEnvironment *queryEnv,
+      DestReceiver *dest, QueryCompletion *qc);
+#elif PG_VERSION_NUM >= 130000
 static void pgluq_ProcessUtility(PlannedStmt *pstmt,
 			  const char *queryString, ProcessUtilityContext context, ParamListInfo params,
 					QueryEnvironment *queryEnv, DestReceiver *dest, QueryCompletion *qc);
@@ -660,7 +668,34 @@ pgluq_ExecutorEnd(QueryDesc *queryDesc)
  * ProcessUtility hook
  * (only available from 9.0 releases)
  */
-#if PG_VERSION_NUM >= 130000
+#if PG_VERSION_NUM >= 140000
+static void pgluq_ProcessUtility(PlannedStmt *pstmt,
+      const char *queryString,
+      bool readOnlyTree,
+      ProcessUtilityContext context,
+      ParamListInfo params,
+      QueryEnvironment *queryEnv,
+      DestReceiver *dest, QueryCompletion *qc)
+{
+		PG_TRY();
+		{
+			if (prev_ProcessUtility)
+				prev_ProcessUtility(pstmt, queryString, readOnlyTree, context,
+									params, queryEnv, dest, qc);
+			else
+				standard_ProcessUtility(pstmt, queryString, readOnlyTree, context,
+										params, queryEnv, dest, qc);
+		}
+		PG_CATCH();
+		{
+			PG_RE_THROW();
+		}
+		PG_END_TRY();
+
+	if (pgluq_check_log())
+		pgluq_log(queryString);
+}
+#elif PG_VERSION_NUM >= 130000
 static void
 pgluq_ProcessUtility(PlannedStmt *pstmt, const char *queryString,
 					ProcessUtilityContext context, ParamListInfo params,
