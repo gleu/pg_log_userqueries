@@ -9,6 +9,8 @@
  *
  *-------------------------------------------------------------------------
  */
+#ident "pg_log_userqueries version 1.2"
+
 #include "postgres.h"
 
 #include <unistd.h>
