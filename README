@@ -109,3 +109,7 @@ As pg_log_userqueries is a shared_preload_library, you'll have to restart Postgr
 
 * pg_log_userqueries.file_switchoff: path to a file that must be root-owned. If this file is present, pg_log_userqueries won't log anymore
 * pg_log_userqueries.time_switchoff: frequency at which backends will check file_switchoff's presence
+
+If you need to know the current version number of this library, you can do this:
+
+    strings $(pg_config --libdir)/pg_log_userqueries.so | grep "pg_log_userqueries version"

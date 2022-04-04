@@ -9,7 +9,7 @@
  *
  *-------------------------------------------------------------------------
  */
-#ident "pg_log_userqueries version 1.2"
+#ident "pg_log_userqueries version 1.3"
 
 #include "postgres.h"
 
