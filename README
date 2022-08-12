@@ -53,6 +53,9 @@ you'll have to set log_superusers to on to reactivate it.
 * pg_log_userqueries.log_addr_blacklist: to give a pipe separated list of IP addresses to avoid logging.
 * pg_log_userqueries.log_app: to give a pipe separated list of application name to log.
 * pg_log_userqueries.log_app_blacklist: to give a pipe separated list of application name to avoid logging.
+* pg_log_userqueries.log_query_id: to give a pipe separated list of query_id to log.
+* pg_log_userqueries.log_query_id_blacklist: to give a pipe separated list of query_id to avoid logging.
+
 
 For a query to be logged, it needs to :
 * match the white list of a filter (eg: log_db) AND
@@ -72,6 +75,11 @@ You can use advanced regular expression in that list. For example:
 
 will match if the exact username is 'postgres', or if it begins with 'admin_' or
 ends with '_adm'.
+
+* pg_log_userqueries.log_query_id='1147616880456321454|11780828165390275418' 
+
+will match if the exact query_id is 1147616880456321454, or if it is 11780828165390275418.
+
 
 You can also use pg_log_userqueries to log queries matching a particular regular
 expression using the 'pg_log_userqueries.log_query' dedicated configuration directive:
