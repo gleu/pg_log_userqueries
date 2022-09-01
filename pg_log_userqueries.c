@@ -188,7 +188,6 @@ static bool pgluq_checkBLitem(const char *item,
 static bool pgluq_checkWLitem(const char *item,
 				const char *log_wl, regex_t *regex_wl);
 				
-extern uint64 pgstat_get_my_query_id(void);
 
 /*
  * Module load callback
