@@ -1,7 +1,7 @@
 pg_log_userqueries is a PostgreSQL module that logs each query executed that
-follows a specific pattern (superuser, user name, database name, app name, 
-inet addr, query, query_id). It records each query in the standard log file. 
-Default is to log superusers queries executed on all databases. It is also 
+follows a specific pattern (superuser, user name, database name, app name,
+inet addr, query, query_id). It records each query in the standard log file.
+Default is to log superusers queries executed on all databases. It is also
 possible to filter the queries to be logged through a regular expression.
 
 To install pg_log_userqueries, you should untar the pg_log_userqueries tarball
@@ -76,7 +76,7 @@ You can use advanced regular expression in that list. For example:
 will match if the exact username is 'postgres', or if it begins with 'admin_' or
 ends with '_adm'.
 
-* pg_log_userqueries.log_query_id='1147616880456321454|11780828165390275418' 
+* pg_log_userqueries.log_query_id='1147616880456321454|11780828165390275418'
 
 will match if the exact query_id is 1147616880456321454, or if it is 11780828165390275418.
 

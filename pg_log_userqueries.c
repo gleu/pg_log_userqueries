@@ -184,10 +184,9 @@ static bool pgluq_checkitem(const char *item,
 
 static bool pgluq_checkBLitem(const char *item,
 				const char *log_bl, regex_t *regex_bl);
-				
+
 static bool pgluq_checkWLitem(const char *item,
 				const char *log_wl, regex_t *regex_wl);
-				
 
 /*
  * Module load callback
@@ -210,7 +209,6 @@ _PG_init(void)
  	 * Define (or redefine) custom GUC variables.
 	 */
 
- 
 	DefineCustomStringVariable( "pg_log_userqueries.log_query_id",
 				"Log statement according to the given query_id.",
 				NULL,
@@ -222,7 +220,7 @@ _PG_init(void)
 				NULL,
 #endif
 				NULL,
-				NULL );  
+				NULL );
 
    DefineCustomStringVariable( "pg_log_userqueries.log_query_id_blacklist",
 				"Do not log statement with query_id in this list.",
@@ -918,27 +916,27 @@ static bool pgluq_checkBLitem(const char *item,
 	if ((log_bl != NULL) && (regexec(regex_bl, item, 0, 0, 0) == 0))
 		has_passed_bl= false;
 
- 	return has_passed_bl;
+	return has_passed_bl;
 }
 
 /*
  * Check an item and a whitelist
  */
- static bool pgluq_checkWLitem(const char *item,
- 				const char *log_wl, regex_t *regex_wl)
- {
- 	bool has_passed_wl = true;
+static bool pgluq_checkWLitem(const char *item,
+				const char *log_wl, regex_t *regex_wl)
+{
+	bool has_passed_wl = true;
 
- 	if ((log_wl != NULL) && (regexec(regex_wl, item, 0, 0, 0) != 0))
- 		has_passed_wl = false;
+	if ((log_wl != NULL) && (regexec(regex_wl, item, 0, 0, 0) != 0))
+		has_passed_wl = false;
 
-  	return has_passed_wl;
- }
+	return has_passed_wl;
+}
 
 /*
  * Check if we should log
  */
-		  
+
 /* I need a PlannedStmt to get the query_id */
 
 #if PG_VERSION_NUM >= 140000
@@ -957,7 +955,7 @@ static bool pgluq_check_log()
 
 #if PG_VERSION_NUM >= 140000
    char *query_id = NULL;
-   uint64 int_query_id = UINT64CONST(0); 
+   uint64 int_query_id = UINT64CONST(0);
    char buf[256];
 #endif
 
@@ -1032,11 +1030,11 @@ static bool pgluq_check_log()
  	}
 
 #if PG_VERSION_NUM >= 140000
-	/* Immediately Check the queryid blacklist */
- 	if (log_query_id_blacklist != NULL) {
+	/* Immediately check the queryid blacklist */
+	if (log_query_id_blacklist != NULL) {
 
-	 	rc = pgluq_checkBLitem(	query_id, 
-			log_query_id_blacklist, 
+		rc = pgluq_checkBLitem(	query_id,
+			log_query_id_blacklist,
 			&query_id_bl_regexv);
 
 		if (!rc)
@@ -1047,7 +1045,6 @@ static bool pgluq_check_log()
 
 	/* Check the user name */
 	if (log_user != NULL || log_user_blacklist != NULL) {
-		
 		rc = pgluq_checkitem(	username,
 					log_user, &usr_regexv,
 					log_user_blacklist, &usr_bl_regexv);
@@ -1064,7 +1061,6 @@ static bool pgluq_check_log()
 
 	/* Check the database name */
 	if (log_db != NULL || log_db_blacklist != NULL) {
-		
 		rc =pgluq_checkitem(	dbname,
 					log_db, &db_regexv,
 					log_db_blacklist, &db_bl_regexv);
@@ -1081,7 +1077,6 @@ static bool pgluq_check_log()
 
 	/* Check the application name */
 	if (log_app != NULL || log_app_blacklist != NULL) {
-		
 		rc = pgluq_checkitem(	appname,
 					log_app, &app_regexv,
 					log_app_blacklist, &app_bl_regexv);
@@ -1099,7 +1094,6 @@ static bool pgluq_check_log()
 	/* Check the inet address */
 	if ((log_addr != NULL || log_addr_blacklist != NULL) && MyProcPort)
 	{
-		
 		addr = MyProcPort->remote_host;
 		rc = pgluq_checkitem(	addr,
 					log_addr, &addr_regexv,
@@ -1115,26 +1109,24 @@ static bool pgluq_check_log()
 		}
 	}
 	
-	#if PG_VERSION_NUM >= 140000
+#if PG_VERSION_NUM >= 140000
 	/* Check the queryid */
- 	if (log_query_id != NULL ) {
-		
-	 	rc = pgluq_checkWLitem(	query_id,
+	if (log_query_id != NULL ) {
+		rc = pgluq_checkWLitem(	query_id,
 			  log_query_id, &query_id_regexv);
 
 		if (match_all) {
 			if (rc)
-		  		ret = true;
+				ret = true;
 			else
 				return false;
-		}else {
+		} else {
 			if (rc)
-			 	return true;
-  		}
+				return true;
+		}
 	}
-
 #endif
-	
+
 	/* Didn't find any interesting condition */
 	return ret;
 }
