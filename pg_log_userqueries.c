@@ -24,8 +24,10 @@
 
 #include <storage/proc.h>
 
+#if PG_VERSION_NUM >= 140000
 // to log query_id
 #include <utils/backend_status.h>
+#endif
 
 /*
  * We won't use PostgreSQL regexps,
@@ -182,11 +184,13 @@ static bool pgluq_checkitem(const char *item,
 				const char *log_wl, regex_t *regex_wl,
 				const char *log_bl, regex_t *regex_bl);
 
+#if PG_VERSION_NUM >= 140000
 static bool pgluq_checkBLitem(const char *item,
 				const char *log_bl, regex_t *regex_bl);
 
 static bool pgluq_checkWLitem(const char *item,
 				const char *log_wl, regex_t *regex_wl);
+#endif
 
 /*
  * Module load callback
@@ -905,6 +909,7 @@ static bool pgluq_checkitem(const char *item,
  	return true;
 }
 
+#if PG_VERSION_NUM >= 140000
 /*
  * Check an item and a blacklist
  */
@@ -932,6 +937,7 @@ static bool pgluq_checkWLitem(const char *item,
 
 	return has_passed_wl;
 }
+#endif
 
 /*
  * Check if we should log
