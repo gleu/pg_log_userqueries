@@ -11,6 +11,23 @@ You'll then need to compile it with pgxs. So the pg_config tool must be in your
 path. Depending on your PostgreSQL installation, you may need to install a dev
 package. Once pg_config is in your path, do "make", and then "make install".
 
+Here are the steps on a Rocky Linux 9 minimal install with PostgreSQL 15:
+
+```
+# install required OS packages
+sudo dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+sudo dnf install -y gcc git make clang ccache openssl-devel krb5-devel redhat-rpm-config
+sudo dnf install -y postgresql15-server postgresql15-contrib postgresql15-devel
+
+# compile and install pg_log_userqueries
+git clone https://github.com/gleu/pg_log_userqueries.git
+cd pg_log_userqueries/
+export PATH=/usr/pgsql-15/bin:$PATH
+make
+make install
+```
+
 Once it's installed, you'll need to configure PostgreSQL to make use of it:
 
 * shared_preload_libraries='pg_log_userqueries'
