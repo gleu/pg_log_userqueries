@@ -25,7 +25,7 @@ git clone https://github.com/gleu/pg_log_userqueries.git
 cd pg_log_userqueries/
 export PATH=/usr/pgsql-15/bin:$PATH
 make
-make install
+sudo make install
 ```
 
 Once it's installed, you'll need to configure PostgreSQL to make use of it:
