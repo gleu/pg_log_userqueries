@@ -217,7 +217,7 @@ _PG_init(void)
 				"Log statement according to the given query_id.",
 				NULL,
 				&log_query_id,
-				"pg_log_userqueries",
+				NULL,
 				PGC_POSTMASTER,
 				0,
 #if PG_VERSION_NUM >= 90100
