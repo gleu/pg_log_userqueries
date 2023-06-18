@@ -487,6 +487,13 @@ _PG_init(void)
 				NULL,
 				NULL);
 
+  /* Reserve the GUC prefix */
+#if PG_VERSION_NUM < 150000
+  EmitWarningsOnPlaceholders("pg_log_userqueries");
+#else
+  MarkGUCPrefixReserved("pg_log_userqueries");
+#endif
+
 	/* Add support to extended regex search */
 	regex_flags |= REG_EXTENDED;
 
