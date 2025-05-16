@@ -982,11 +982,19 @@ static bool pgluq_check_log()
    query_id = pstrdup((const char*) buf);
 #endif
 
-#if PG_VERSION_NUM >= 90602
+#if PG_VERSION_NUM >= 90602 && PG_VERSION_NUM < 180000
 	/*
 	 * We don't want to log the activity of background workers.
 	 */
 	if (MyProc->isBackgroundWorker)
+		return false;
+#endif
+
+#if PG_VERSION_NUM >= 180000
+	/*
+	 * We don't want to log the activity of background workers.
+	 */
+	if (!MyProc->isRegularBackend)
 		return false;
 #endif
 
