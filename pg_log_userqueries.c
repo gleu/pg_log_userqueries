@@ -34,7 +34,11 @@
  * and as they redefine some system regexps types, we make sure we don't
  * redefine them
  */
+#if PG_VERSION_NUM >= 110000
+#define _PG_REGEX_H_
+#else
 #define _REGEX_H_
+#endif
 
 #include "funcapi.h"
 #include "tcop/utility.h"
